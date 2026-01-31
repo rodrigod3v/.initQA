@@ -7,11 +7,14 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { RequestService } from './request.service';
 import { ExecutionService } from './execution/execution.service';
 import { ComparisonService } from './comparison/comparison.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('requests')
 export class RequestController {
   constructor(
