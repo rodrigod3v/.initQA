@@ -3,8 +3,10 @@ import { RequestController } from './request.controller';
 import { RequestService } from './request.service';
 import { ExecutionService } from './execution/execution.service';
 import { ComparisonService } from './comparison/comparison.service';
+import { ContractModule } from '../contract/contract.module';
 
 @Module({
+  imports: [ContractModule],
   controllers: [RequestController],
   providers: [RequestService, ExecutionService, ComparisonService],
 })

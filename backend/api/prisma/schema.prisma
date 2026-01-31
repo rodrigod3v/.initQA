@@ -40,8 +40,9 @@ model Request {
   body       Json?
   projectId  String
   project    Project            @relation(fields: [projectId], references: [id])
-  executions RequestExecution[]
-  createdAt  DateTime           @default(now())
+  executions             RequestExecution[]
+  expectedResponseSchema Json?
+  createdAt              DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
 }
 
@@ -51,8 +52,9 @@ model RequestExecution {
   request   Request  @relation(fields: [requestId], references: [id])
   response  Json?
   status    Int
-  duration  Int
-  createdAt DateTime @default(now())
+  duration         Int
+  validationResult Json?
+  createdAt        DateTime @default(now())
 }
 
 model User {
