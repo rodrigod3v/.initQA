@@ -4,9 +4,10 @@ import { RequestService } from './request.service';
 import { ExecutionService } from './execution/execution.service';
 import { ComparisonService } from './comparison/comparison.service';
 import { ContractModule } from '../contract/contract.module';
+import { UtilsModule } from '../utils/utils.module';
 
 @Module({
-  imports: [ContractModule],
+  imports: [ContractModule, UtilsModule],
   controllers: [RequestController],
   providers: [RequestService, ExecutionService, ComparisonService],
 })

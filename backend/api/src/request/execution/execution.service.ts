@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import axios, { AxiosRequestConfig } from 'axios';
 import { ContractService } from '../../contract/contract.service';
+import { UtilsService } from '../../utils/utils.service';
 
 @Injectable()
 export class ExecutionService {
   constructor(
     private prisma: PrismaService,
     private contractService: ContractService,
+    private utilsService: UtilsService,
   ) {}
 
   async execute(requestId: string, environmentId?: string) {
@@ -91,10 +93,16 @@ export class ExecutionService {
     
     let str = typeof target === 'string' ? target : JSON.stringify(target);
     
+    // Replace user variables
     Object.keys(variables).forEach((key) => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');
       str = str.replace(placeholder, variables[key]);
     });
+
+    // Replace system variables
+    str = str.replace(/\{\{\$randomCPF\}\}/g, () => this.utilsService.generateCPF(true));
+    str = str.replace(/\{\{\$randomEmail\}\}/g, () => this.utilsService.generateEmail());
+    str = str.replace(/\{\{\$randomUUID\}\}/g, () => this.utilsService.generateUUID());
 
     try {
       return typeof target === 'string' ? str : JSON.parse(str);

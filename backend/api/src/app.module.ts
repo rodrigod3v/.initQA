@@ -7,9 +7,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RequestModule } from './request/request.module';
 import { AuthModule } from './auth/auth.module';
 import { ContractModule } from './contract/contract.module';
+import { UtilsModule } from './utils/utils.module';
 
 @Module({
-  imports: [ProjectModule, PrismaModule, RequestModule, AuthModule, ContractModule],
+  imports: [ProjectModule, PrismaModule, RequestModule, AuthModule, ContractModule, UtilsModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })
