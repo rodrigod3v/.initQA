@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import axios, { AxiosRequestConfig } from 'axios';
+import { ContractService } from '../../contract/contract.service';
 
 @Injectable()
 export class ExecutionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private contractService: ContractService,
+  ) {}
 
   async execute(requestId: string, environmentId?: string) {
     const request = await this.prisma.request.findUnique({
@@ -42,12 +46,22 @@ export class ExecutionService {
       const response = await axios(config);
       const duration = Date.now() - startTime;
 
+      // Validate contract if schema exists
+      let validationResult: any = null;
+      if (request.expectedResponseSchema) {
+        validationResult = this.contractService.validate(
+          request.expectedResponseSchema,
+          response.data,
+        );
+      }
+
       // Save execution
       const execution = await this.prisma.requestExecution.create({
         data: {
           requestId: request.id,
           status: response.status,
           duration,
+          validationResult: validationResult as any,
           response: {
             data: response.data,
             headers: response.headers,
