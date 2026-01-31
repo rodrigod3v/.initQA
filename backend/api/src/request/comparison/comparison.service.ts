@@ -19,16 +19,16 @@ export class ComparisonService {
       }),
     );
 
-    const comparisons = [];
+    const comparisons: any[] = [];
     for (let i = 0; i < results.length; i++) {
       for (let j = i + 1; j < results.length; j++) {
         const left = results[i];
         const right = results[j];
 
-        const delta = this.differ.diff(
-          left.execution.response['data'],
-          right.execution.response['data'],
-        );
+        const leftData = (left.execution.response as any)?.data;
+        const rightData = (right.execution.response as any)?.data;
+
+        const delta = this.differ.diff(leftData, rightData);
 
         comparisons.push({
           environments: [left.environmentId, right.environmentId],
