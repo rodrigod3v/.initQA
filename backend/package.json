@@ -24,6 +24,10 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-fastify": "^11.1.12",
+    "ajv": "^6.12.6",
+    "ajv-formats": "^3.0.1",
+    "axios": "^1.13.4",
+    "jsondiffpatch": "^0.7.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
