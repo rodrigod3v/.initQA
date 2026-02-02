@@ -245,29 +245,39 @@ const Requests: React.FC = () => {
                     </button>
                 </div>
                 <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-1">
-                    {requests.map((req) => (
-                        <button
-                            key={req.id}
-                            onClick={() => {
-                                setSelectedRequest(req);
-                                setLastResult(null);
-                            }}
-                            className={`w-full text-left p-2 border-sharp transition-all group flex items-center gap-2
-                                ${selectedRequest?.id === req.id
-                                    ? 'bg-accent/10 border-accent/30 text-accent'
-                                    : 'border-transparent text-secondary-text hover:bg-surface hover:text-primary-text'
-                                }`}
-                        >
-                            <span className={`text-[8px] font-bold w-10 text-center py-0.5 border-sharp uppercase
-                                ${req.method === 'GET' ? 'text-emerald-500 border-emerald-500/30' :
-                                    req.method === 'POST' ? 'text-cyan-500 border-cyan-500/30' :
-                                        'text-amber-500 border-amber-500/30'
-                                }`}>
-                                {req.method}
-                            </span>
-                            <span className="text-[11px] font-mono truncate uppercase flex-1">{req.name || 'UNNAMED_PROC'}</span>
-                        </button>
-                    ))}
+                    {requests.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center opacity-30 p-4 text-center">
+                            <Database size={24} className="mb-2" />
+                            <p className="text-[10px] font-mono uppercase tracking-widest">
+                                NO_NODES_FOUND<br />
+                                // Run initializer
+                            </p>
+                        </div>
+                    ) : (
+                        requests.map((req) => (
+                            <button
+                                key={req.id}
+                                onClick={() => {
+                                    setSelectedRequest(req);
+                                    setLastResult(null);
+                                }}
+                                className={`w-full text-left p-2 border-sharp transition-all group flex items-center gap-2
+                                    ${selectedRequest?.id === req.id
+                                        ? 'bg-accent/10 border-accent/30 text-accent'
+                                        : 'border-transparent text-secondary-text hover:bg-surface hover:text-primary-text'
+                                    }`}
+                            >
+                                <span className={`text-[8px] font-bold w-10 text-center py-0.5 border-sharp uppercase
+                                    ${req.method === 'GET' ? 'text-emerald-500 border-emerald-500/30' :
+                                        req.method === 'POST' ? 'text-cyan-500 border-cyan-500/30' :
+                                            'text-amber-500 border-amber-500/30'
+                                    }`}>
+                                    {req.method}
+                                </span>
+                                <span className="text-[11px] font-mono truncate uppercase flex-1">{req.name || 'UNNAMED_PROC'}</span>
+                            </button>
+                        ))
+                    )}
                 </div>
             </div>
 
@@ -401,8 +411,34 @@ const Requests: React.FC = () => {
                             </div>
 
                             <div className="flex-1 flex flex-col relative bg-deep overflow-hidden">
+                                {executing && (
+                                    <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center space-y-4">
+                                        <div className="relative">
+                                            <div className="w-12 h-12 border-2 border-accent/20 border-t-accent rounded-full animate-spin"></div>
+                                            <Activity className="absolute inset-0 m-auto text-accent animate-pulse" size={16} />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-mono text-accent uppercase tracking-[0.3em] animate-pulse">Executing_Protocol</p>
+                                            <p className="text-[8px] font-mono text-secondary-text uppercase tracking-widest mt-1 opacity-50">Transmitting Data Packets...</p>
+                                        </div>
+                                    </div>
+                                )}
                                 {lastResult ? (
                                     <div className="absolute inset-0 flex flex-col p-2 gap-2 overflow-hidden">
+                                        {lastResult.response?.data?.error === 'EXECUTION_FAILED' && (
+                                            <div className="p-3 border-sharp bg-rose-500/10 border-rose-500/30 text-rose-500 flex flex-col gap-1 shrink-0">
+                                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider">
+                                                    <XCircle size={14} />
+                                                    CRITICAL_NETWORK_FAILURE
+                                                </div>
+                                                <p className="text-[9px] font-mono opacity-80 pl-6">
+                                                    {lastResult.response.data.message || 'The server could not be reached.'}
+                                                    <br />
+                                                    <span className="opacity-50 text-[8px]">CODE: {lastResult.response.data.code} • ATTEMPTS: {lastResult.response.data.attempts}</span>
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {lastResult.validationResult && (
                                             <div className={`p-2 border-sharp flex items-center justify-between font-mono text-[9px] uppercase tracking-wider shrink-0
                                                 ${lastResult.validationResult.valid
