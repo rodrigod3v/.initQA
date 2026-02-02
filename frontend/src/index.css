@@ -1,15 +1,68 @@
 @import "tailwindcss";
 
+@theme {
+  --font-mono: "JetBrains Mono", "Fira Code", "Roboto Mono", monospace;
+  
+  --color-background: var(--bg-deep);
+  --color-surface: var(--bg-surface);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-primary-text: var(--text-main);
+  --color-secondary-text: var(--text-sub);
+}
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --bg-deep: #020617; /* slate-950 */
+  --bg-surface: #0f172a; /* slate-900 */
+  --accent: #10b981; /* emerald-500 */
+  --danger: #f43f5e; /* rose-500 */
+  --warning: #fbbf24; /* amber-400 */
+  --text-main: #e2e8f0; /* slate-200 */
+  --text-sub: #64748b; /* slate-500 */
+  --border-main: #1e293b; /* slate-800 */
+
+  font-family: var(--font-mono);
+  background-color: var(--bg-deep);
+  color: var(--text-main);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  @apply bg-slate-50 text-slate-900;
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.dark body {
-  @apply bg-slate-950 text-slate-50;
+/* Hacker Mode Utility: Glow Effect */
+.glow-accent {
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.glow-danger {
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.2);
+}
+
+/* Sharp Borders */
+.border-sharp {
+  border-width: 1px;
+  border-color: var(--border-main);
+  border-radius: 0.125rem; /* rounded-sm */
+}
+
+/* High Density Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-main);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-sub);
 }

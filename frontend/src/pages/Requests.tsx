@@ -4,15 +4,22 @@ import api from '../services/api';
 import Editor from '../components/Editor';
 import {
     Plus,
-    Settings,
-    Send,
     CheckCircle2,
     XCircle,
     Loader2,
-    FileJson,
     Activity,
-    Code
+    Database,
+    Clock,
+    Save,
+    Trash2,
+    ChevronDown,
+    Terminal
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card } from '../components/ui/Card';
+import { Tabs } from '../components/ui/Tabs';
+import { Modal } from '../components/ui/Modal';
 
 interface RequestModel {
     id: string;
@@ -21,6 +28,7 @@ interface RequestModel {
     url: string;
     headers: any;
     body: any;
+    testScript?: string;
     expectedResponseSchema?: any;
 }
 
@@ -28,11 +36,19 @@ interface ExecutionResult {
     id: string;
     status: number;
     duration: number;
-    response: any;
+    response: {
+        data: any;
+        headers?: any;
+    };
     validationResult?: {
         valid: boolean;
         errors?: any[];
     };
+    testResults?: {
+        name: string;
+        pass: boolean;
+        error?: string;
+    }[];
 }
 
 const Requests: React.FC = () => {
@@ -42,15 +58,40 @@ const Requests: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [executing, setExecuting] = useState(false);
     const [lastResult, setLastResult] = useState<ExecutionResult | null>(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [newRequestName, setNewRequestName] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    // Environment State
+    const [environments, setEnvironments] = useState<any[]>([]);
+    const [selectedEnvId, setSelectedEnvId] = useState<string>('');
+    const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
+    const [envName, setEnvName] = useState('');
+    const [envVariables, setEnvVariables] = useState('{\n  "BASE_URL": "https://api.example.com\"\n}');
 
     // Tab control
-    const [activeTab, setActiveTab] = useState<'params' | 'headers' | 'body' | 'schema'>('body');
+    const [activeTab, setActiveTab] = useState('body');
 
     useEffect(() => {
         fetchRequests();
+        fetchEnvironments();
     }, [projectId]);
 
+    const fetchEnvironments = async () => {
+        if (!projectId) return;
+        try {
+            const response = await api.get(`/projects/${projectId}/environments`);
+            setEnvironments(response.data);
+            if (response.data.length > 0 && !selectedEnvId) {
+                setSelectedEnvId(response.data[0].id);
+            }
+        } catch (err) {
+            console.error('Failed to fetch environments');
+        }
+    };
+
     const fetchRequests = async () => {
+        setLoading(true);
         try {
             const response = await api.get(`/requests?projectId=${projectId}`);
             setRequests(response.data);
@@ -64,12 +105,72 @@ const Requests: React.FC = () => {
         }
     };
 
+    const handleCreateEnvironment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const response = await api.post(`/projects/${projectId}/environments`, {
+                name: envName,
+                variables: JSON.parse(envVariables)
+            });
+            setEnvironments([...environments, response.data]);
+            setSelectedEnvId(response.data.id);
+            setIsEnvModalOpen(false);
+            setEnvName('');
+        } catch (err) {
+            console.error('Failed to create environment');
+        }
+    };
+
+    const handleCreateRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const isUrl = newRequestName.startsWith('http://') || newRequestName.startsWith('https://');
+            const response = await api.post('/requests', {
+                name: isUrl ? new URL(newRequestName).pathname.slice(1) || newRequestName : newRequestName,
+                projectId,
+                method: 'GET',
+                url: isUrl ? newRequestName : 'https://api.example.com/status',
+                headers: {},
+                body: {}
+            });
+            setRequests([...requests, response.data]);
+            setSelectedRequest(response.data);
+            setNewRequestName('');
+            setIsCreateModalOpen(false);
+        } catch (err) {
+            console.error('Failed to create request');
+        }
+    };
+
     const handleExecute = async () => {
         if (!selectedRequest) return;
+
+        // Auto-save before execute
+        setSaving(true);
+        try {
+            // Destructure to remove immutable fields
+            const { id, projectId: pId, createdAt, updatedAt, executions, ...data } = selectedRequest as any;
+
+            try { if (typeof data.body === 'string') data.body = JSON.parse(data.body); } catch (e) { }
+            try { if (typeof data.headers === 'string') data.headers = JSON.parse(data.headers); } catch (e) { }
+            try { if (typeof data.expectedResponseSchema === 'string') data.expectedResponseSchema = JSON.parse(data.expectedResponseSchema); } catch (e) { }
+
+            await api.patch(`/requests/${selectedRequest.id}`, data);
+            setRequests(requests.map(r => r.id === selectedRequest.id ? selectedRequest : r));
+        } catch (err) {
+            console.error('Auto-save failed before execution', err);
+            setSaving(false);
+            return; // STOP execution if save fails
+        } finally {
+            setSaving(false);
+        }
+
         setExecuting(true);
         setLastResult(null);
         try {
-            const response = await api.post(`/requests/${selectedRequest.id}/execute`);
+            const response = await api.post(`/requests/${selectedRequest.id}/execute`, {
+                environmentId: selectedEnvId || undefined
+            });
             setLastResult(response.data);
         } catch (err) {
             console.error('Execution failed');
@@ -85,28 +186,65 @@ const Requests: React.FC = () => {
 
     const handleSave = async () => {
         if (!selectedRequest) return;
+        setSaving(true);
         try {
-            await api.patch(`/requests/${selectedRequest.id}`, selectedRequest);
-            // Update in list
+            const { id, projectId: pId, createdAt, updatedAt, executions, ...data } = selectedRequest as any;
+
+            try { if (typeof data.body === 'string') data.body = JSON.parse(data.body); } catch (e) { }
+            try { if (typeof data.headers === 'string') data.headers = JSON.parse(data.headers); } catch (e) { }
+            try { if (typeof data.expectedResponseSchema === 'string') data.expectedResponseSchema = JSON.parse(data.expectedResponseSchema); } catch (e) { }
+
+            await api.patch(`/requests/${selectedRequest.id}`, data);
             setRequests(requests.map(r => r.id === selectedRequest.id ? selectedRequest : r));
         } catch (err) {
             console.error('Failed to save');
+        } finally {
+            setSaving(false);
         }
     };
 
-    if (loading) return <div className="flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+    const handleDelete = async () => {
+        if (!selectedRequest) return;
+        if (!confirm(`Delete request "${selectedRequest.name}"?`)) return;
+        try {
+            await api.delete(`/requests/${selectedRequest.id}`);
+            const updatedList = requests.filter(r => r.id !== selectedRequest.id);
+            setRequests(updatedList);
+            setSelectedRequest(updatedList.length > 0 ? updatedList[0] : null);
+        } catch (err) {
+            console.error('Failed to delete');
+        }
+    };
+
+    const formatEditorValue = (val: any) => {
+        if (!val) return '{}';
+        if (typeof val === 'string') return val;
+        return JSON.stringify(val, null, 2);
+    };
+
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 className="animate-spin text-accent mb-4" size={32} />
+            <p className="text-[10px] font-mono text-secondary-text uppercase tracking-widest">Hydrating Core Modules...</p>
+        </div>
+    );
 
     return (
-        <div className="flex h-[calc(100vh-160px)] gap-6">
-            {/* Sidebar List */}
-            <div className="w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-sm">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                    <span className="font-bold text-slate-900 dark:text-white">Requests</span>
-                    <button className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                        <Plus size={18} />
+        <div className="flex h-[calc(100vh-80px)] gap-4 overflow-hidden">
+            <div className="w-72 flex flex-col border-sharp border-main bg-surface/50 overflow-hidden shrink-0">
+                <div className="p-3 border-b border-main flex justify-between items-center bg-deep/50">
+                    <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                        <Database size={12} />
+                        DIR_SCAN
+                    </span>
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="text-accent hover:text-white transition-colors"
+                    >
+                        <Plus size={16} />
                     </button>
                 </div>
-                <div className="flex-1 overflow-auto p-2">
+                <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-1">
                     {requests.map((req) => (
                         <button
                             key={req.id}
@@ -114,169 +252,311 @@ const Requests: React.FC = () => {
                                 setSelectedRequest(req);
                                 setLastResult(null);
                             }}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all mb-1 ${selectedRequest?.id === req.id
-                                    ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50'
-                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'
+                            className={`w-full text-left p-2 border-sharp transition-all group flex items-center gap-2
+                                ${selectedRequest?.id === req.id
+                                    ? 'bg-accent/10 border-accent/30 text-accent'
+                                    : 'border-transparent text-secondary-text hover:bg-surface hover:text-primary-text'
                                 }`}
                         >
-                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${req.method === 'GET' ? 'text-green-600 border-green-200 bg-green-50' :
-                                    req.method === 'POST' ? 'text-blue-600 border-blue-200 bg-blue-50' :
-                                        'text-amber-600 border-amber-200 bg-amber-50'
+                            <span className={`text-[8px] font-bold w-10 text-center py-0.5 border-sharp uppercase
+                                ${req.method === 'GET' ? 'text-emerald-500 border-emerald-500/30' :
+                                    req.method === 'POST' ? 'text-cyan-500 border-cyan-500/30' :
+                                        'text-amber-500 border-amber-500/30'
                                 }`}>
                                 {req.method}
                             </span>
-                            <span className="text-sm font-medium truncate">{req.name || req.url}</span>
+                            <span className="text-[11px] font-mono truncate uppercase flex-1">{req.name || 'UNNAMED_PROC'}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
-            {/* Editor & Results */}
             {selectedRequest ? (
-                <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-                    {/* URL Bar */}
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex gap-4 shadow-sm items-center">
-                        <select
-                            value={selectedRequest.method}
-                            onChange={(e) => updateRequestField('method', e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-800 border-0 rounded-xl px-4 py-3 font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option>GET</option>
-                            <option>POST</option>
-                            <option>PUT</option>
-                            <option>DELETE</option>
-                            <option>PATCH</option>
-                        </select>
-                        <input
-                            type="text"
-                            value={selectedRequest.url}
-                            onChange={(e) => updateRequestField('url', e.target.value)}
-                            className="flex-1 bg-slate-50 dark:bg-slate-800 border-0 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                            placeholder="https://api.example.com/data"
-                        />
-                        <button
-                            onClick={handleExecute}
-                            disabled={executing}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
-                        >
-                            {executing ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-                            Send
-                        </button>
-                    </div>
-
-                    {/* Request Config */}
-                    <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-                        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 px-4">
-                            {[
-                                { id: 'body', label: 'Body', icon: FileJson },
-                                { id: 'headers', label: 'Headers', icon: Settings },
-                                { id: 'schema', label: 'Contract', icon: Code },
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as any)}
-                                    className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-all ${activeTab === tab.id
-                                            ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-slate-900'
-                                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                        }`}
+                <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                    <Card className="p-2 border-main bg-surface/30">
+                        <div className="flex gap-2">
+                            <div className="relative shrink-0">
+                                <select
+                                    value={selectedRequest.method}
+                                    onChange={(e) => updateRequestField('method', e.target.value)}
+                                    className="appearance-none bg-deep border-sharp border-main px-4 py-2 font-mono font-bold text-accent text-xs focus:outline-none focus:border-accent/50 cursor-pointer pr-8"
                                 >
-                                    <tab.icon size={16} />
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="flex-1 p-4">
-                            {activeTab === 'body' && (
-                                <Editor
-                                    value={typeof selectedRequest.body === 'string' ? selectedRequest.body : JSON.stringify(selectedRequest.body || {}, null, 2)}
-                                    onChange={(val) => updateRequestField('body', val)}
-                                    height="100%"
-                                />
-                            )}
-                            {activeTab === 'headers' && (
-                                <Editor
-                                    value={typeof selectedRequest.headers === 'string' ? selectedRequest.headers : JSON.stringify(selectedRequest.headers || {}, null, 2)}
-                                    onChange={(val) => updateRequestField('headers', val)}
-                                    height="100%"
-                                />
-                            )}
-                            {activeTab === 'schema' && (
-                                <Editor
-                                    value={typeof selectedRequest.expectedResponseSchema === 'string' ? selectedRequest.expectedResponseSchema : JSON.stringify(selectedRequest.expectedResponseSchema || {}, null, 2)}
-                                    onChange={(val) => updateRequestField('expectedResponseSchema', val)}
-                                    height="100%"
-                                />
-                            )}
-                        </div>
-                        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                            <button
-                                onClick={handleSave}
-                                className="text-indigo-600 font-bold px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all"
-                            >
-                                Save Changes
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Response Result */}
-                    {lastResult && (
-                        <div className="h-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col animate-in slide-in-from-bottom-5 duration-300">
-                            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <Activity size={16} className="text-slate-400" />
-                                        <span className={`font-bold ${lastResult.status < 400 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {lastResult.status} Status
-                                        </span>
-                                    </div>
-                                    <span className="text-slate-400">|</span>
-                                    <span className="text-sm font-medium text-slate-500">{lastResult.duration}ms</span>
-                                </div>
-                                {lastResult.validationResult && (
-                                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${lastResult.validationResult.valid
-                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                        }`}>
-                                        {lastResult.validationResult.valid ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                                        {lastResult.validationResult.valid ? 'Contract Valid' : 'Contract Failed'}
-                                    </div>
-                                )}
+                                    {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(m => <option key={m}>{m}</option>)}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary-text pointer-events-none" />
                             </div>
-                            <div className="flex-1 p-4 grid grid-cols-2 gap-4 overflow-hidden">
-                                <div className="flex flex-col h-full">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Response Data</span>
-                                    <Editor
-                                        value={JSON.stringify(lastResult.response.data, null, 2)}
-                                        onChange={() => { }}
-                                        readOnly={true}
-                                        height="100%"
-                                    />
-                                </div>
-                                <div className="flex flex-col h-full overflow-auto">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Validation Errors</span>
-                                    {lastResult.validationResult?.errors ? (
-                                        <div className="space-y-2">
-                                            {lastResult.validationResult.errors.map((err, i) => (
-                                                <div key={i} className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl text-xs text-red-600 dark:text-red-400 font-mono">
-                                                    <strong>{err.instancePath || 'root'}</strong>: {err.message}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="h-full flex items-center justify-center text-slate-400 text-sm">
-                                            {lastResult.validationResult?.valid ? 'No errors found.' : 'Validation results not available.'}
-                                        </div>
+
+                            <div className="relative shrink-0">
+                                <select
+                                    value={selectedEnvId}
+                                    onChange={(e) => setSelectedEnvId(e.target.value)}
+                                    className="appearance-none bg-deep border-sharp border-accent/30 px-4 py-2 font-mono font-bold text-accent text-xs focus:outline-none focus:border-accent/50 cursor-pointer pr-10"
+                                >
+                                    <option value="">NO_ENV</option>
+                                    {environments.map(env => (
+                                        <option key={env.id} value={env.id}>{env.name.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-accent pointer-events-none" />
+                            </div>
+
+                            <Button
+                                variant="ghost"
+                                onClick={() => setIsEnvModalOpen(true)}
+                                className="aspect-square p-2 border-accent/20 text-accent/50 hover:text-accent"
+                            >
+                                <Plus size={16} />
+                            </Button>
+
+                            <input
+                                type="text"
+                                value={selectedRequest.url}
+                                onChange={(e) => updateRequestField('url', e.target.value)}
+                                className="flex-1 bg-deep border-sharp border-main px-4 py-2 text-xs text-primary-text font-mono focus:border-accent/50 focus:outline-none placeholder:text-secondary-text/30"
+                                placeholder="PROTOCOL://HOST:PORT/ENDPOINT"
+                            />
+                            <Button
+                                onClick={handleExecute}
+                                disabled={executing}
+                                glow
+                                className="w-32 text-xs uppercase tracking-widest"
+                            >
+                                {executing ? <Loader2 className="animate-spin mr-2" size={14} /> : <Terminal className="mr-2" size={14} />}
+                                Execute
+                            </Button>
+                            <Button variant="secondary" onClick={handleSave} disabled={saving} className="aspect-square p-2 border-accent/20">
+                                <Save size={16} className={saving ? 'animate-pulse text-accent' : ''} />
+                            </Button>
+                            <Button variant="danger" onClick={handleDelete} className="aspect-square p-2">
+                                <Trash2 size={16} />
+                            </Button>
+                        </div>
+                    </Card>
+
+                    <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+                        <div className="flex flex-col border-sharp border-main bg-surface/30 overflow-hidden">
+                            <Tabs
+                                tabs={[
+                                    { id: 'body', label: 'Payload' },
+                                    { id: 'headers', label: 'Headers' },
+                                    { id: 'schema', label: 'Contract' },
+                                    { id: 'tests', label: 'Tests' },
+                                ]}
+                                activeTab={activeTab}
+                                onTabChange={setActiveTab}
+                            />
+                            <div className="flex-1 relative bg-deep">
+                                <div className="absolute inset-0 p-2">
+                                    {activeTab === 'body' && (
+                                        <Editor
+                                            value={formatEditorValue(selectedRequest.body)}
+                                            onChange={(val) => updateRequestField('body', val)}
+                                            height="100%"
+                                        />
+                                    )}
+                                    {activeTab === 'headers' && (
+                                        <Editor
+                                            value={formatEditorValue(selectedRequest.headers)}
+                                            onChange={(val) => updateRequestField('headers', val)}
+                                            height="100%"
+                                        />
+                                    )}
+                                    {activeTab === 'schema' && (
+                                        <Editor
+                                            value={formatEditorValue(selectedRequest.expectedResponseSchema)}
+                                            onChange={(val) => updateRequestField('expectedResponseSchema', val)}
+                                            height="100%"
+                                        />
+                                    )}
+                                    {activeTab === 'tests' && (
+                                        <Editor
+                                            value={selectedRequest.testScript || '// pm.test("Status is 200", () => pm.response.to.have.status(200));'}
+                                            onChange={(val) => updateRequestField('testScript', val)}
+                                            height="100%"
+                                            language="javascript"
+                                        />
                                     )}
                                 </div>
                             </div>
                         </div>
-                    )}
+
+                        <div className="flex flex-col border-sharp border-main bg-surface/30 overflow-hidden">
+                            <div className="px-4 py-2 border-b border-main bg-deep/50 flex items-center justify-between">
+                                <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                                    <Activity size={12} />
+                                    OUTPUT_CONSOLE
+                                </span>
+                                {lastResult && (
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock size={10} className="text-secondary-text" />
+                                            <span className="text-[9px] font-mono text-secondary-text">{lastResult.duration}ms</span>
+                                        </div>
+                                        <div className={`px-2 py-0.5 border-sharp text-[9px] font-mono font-bold uppercase
+                                            ${lastResult.status < 400 ? 'text-emerald-500 border-emerald-500/30' : 'text-rose-500 border-rose-500/30'}`}>
+                                            STATUS_{lastResult.status}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex-1 flex flex-col relative bg-deep overflow-hidden">
+                                {lastResult ? (
+                                    <div className="absolute inset-0 flex flex-col p-2 gap-2 overflow-hidden">
+                                        {lastResult.validationResult && (
+                                            <div className={`p-2 border-sharp flex items-center justify-between font-mono text-[9px] uppercase tracking-wider shrink-0
+                                                ${lastResult.validationResult.valid
+                                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    {lastResult.validationResult.valid ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                                    CONTRACT: {lastResult.validationResult.valid ? 'PASSED' : 'FAILED'}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {lastResult.testResults && lastResult.testResults.length > 0 && (
+                                            <div className="grid grid-cols-2 gap-2 shrink-0">
+                                                {lastResult.testResults.map((test, i) => (
+                                                    <div key={i} className={`p-2 border-sharp flex flex-col font-mono text-[9px] uppercase tracking-wider
+                                                        ${test.pass ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
+                                                        <div className="flex items-center gap-2">
+                                                            {test.pass ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
+                                                            <span className="truncate">{test.name}</span>
+                                                        </div>
+                                                        {!test.pass && test.error && (
+                                                            <div className="mt-1 text-[8px] opacity-70 normal-case border-t border-rose-500/20 pt-1">
+                                                                {test.error}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex-1 flex flex-col min-h-0 gap-2 overflow-hidden">
+                                            <div className="flex-1 flex flex-col min-h-0 bg-deep border-sharp border-main overflow-hidden relative">
+                                                <div className="px-3 py-1 bg-surface/50 text-[8px] font-mono text-secondary-text uppercase border-b border-main shrink-0">Raw_Data</div>
+                                                <div className="flex-1 relative">
+                                                    <Editor
+                                                        value={typeof lastResult.response.data === 'string' ? lastResult.response.data : JSON.stringify(lastResult.response.data || {}, null, 2)}
+                                                        onChange={() => { }}
+                                                        readOnly={true}
+                                                        height="100%"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {!lastResult.validationResult?.valid && lastResult.validationResult?.errors && (
+                                                <div className="h-40 flex flex-col border-sharp border-rose-500/30 bg-rose-500/5 overflow-hidden shrink-0">
+                                                    <div className="px-3 py-1 bg-rose-500/20 text-[8px] font-mono text-rose-500 uppercase border-b border-rose-500/30">Schema_Violations</div>
+                                                    <div className="flex-1 overflow-auto p-2 custom-scrollbar">
+                                                        {lastResult.validationResult.errors.map((err: any, i: number) => (
+                                                            <div key={i} className="mb-2 text-[9px] font-mono text-rose-400">
+                                                                <span className="opacity-50 tracking-tighter">[{err.instancePath || 'ROOT'}]</span> {err.message}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center space-y-3 opacity-30">
+                                        <Terminal size={40} className="text-secondary-text" />
+                                        <p className="text-[10px] font-mono text-secondary-text uppercase tracking-widest text-center">
+                                            System Idle. // Awaiting Execution Protocol.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm italic text-slate-400">
-                    Select a request or create a new one to start testing.
+                <div className="flex-1 flex flex-col items-center justify-center border-sharp border-main bg-surface/20 opacity-40">
+                    <Terminal size={48} className="text-secondary-text mb-4" />
+                    <p className="text-[10px] font-mono text-secondary-text uppercase tracking-widest">Select Access Protocol to Begin Scan.</p>
                 </div>
             )}
+
+            <Modal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                title="Initialize_New_Node"
+            >
+                <form onSubmit={handleCreateRequest} className="space-y-6">
+                    <Input
+                        autoFocus
+                        label="Node_Identifier"
+                        placeholder="E.G. AUTH_VALIDATION"
+                        value={newRequestName}
+                        onChange={(e) => setNewRequestName(e.target.value)}
+                        required
+                    />
+                    <div className="flex gap-3 pt-2">
+                        <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={() => setIsCreateModalOpen(false)}
+                            className="flex-1 text-xs uppercase tracking-widest"
+                        >
+                            Abort
+                        </Button>
+                        <Button
+                            type="submit"
+                            glow
+                            className="flex-1 text-xs uppercase tracking-widest"
+                        >
+                            Initialize
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal
+                isOpen={isEnvModalOpen}
+                onClose={() => setIsEnvModalOpen(false)}
+                title="Configure_Environment"
+            >
+                <form onSubmit={handleCreateEnvironment} className="space-y-6">
+                    <Input
+                        autoFocus
+                        label="Environment_Alias"
+                        placeholder="E.G. STAGING_BETA"
+                        value={envName}
+                        onChange={(e) => setEnvName(e.target.value)}
+                        required
+                    />
+                    <div className="space-y-1">
+                        <label className="text-xs font-mono text-secondary-text uppercase tracking-wider">Variables_JSON</label>
+                        <div className="h-48 border-sharp border-main border">
+                            <Editor
+                                value={envVariables}
+                                onChange={(val) => setEnvVariables(val || '{}')}
+                                height="100%"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={() => setIsEnvModalOpen(false)}
+                            className="flex-1 text-xs uppercase tracking-widest"
+                        >
+                            Abort
+                        </Button>
+                        <Button
+                            type="submit"
+                            glow
+                            className="flex-1 text-xs uppercase tracking-widest"
+                        >
+                            Provision
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

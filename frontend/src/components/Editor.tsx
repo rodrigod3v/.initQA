@@ -20,10 +20,10 @@ const Editor: React.FC<EditorProps> = ({
     readOnly = false
 }) => {
     return (
-        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#1e1e1e]">
+        <div className="border border-main border-sharp overflow-hidden bg-deep" style={{ height }}>
             <Suspense fallback={
                 <div className="flex items-center justify-center p-10" style={{ height }}>
-                    <Loader2 className="animate-spin text-slate-400" size={24} />
+                    <Loader2 className="animate-spin text-accent" size={24} />
                 </div>
             }>
                 <MonacoEditor
@@ -34,10 +34,21 @@ const Editor: React.FC<EditorProps> = ({
                     theme="vs-dark"
                     options={{
                         minimap: { enabled: false },
-                        fontSize: 14,
+                        fontSize: 13,
+                        fontFamily: 'var(--font-mono)',
                         readOnly,
                         scrollBeyondLastLine: false,
                         automaticLayout: true,
+                        lineNumbers: 'on',
+                        roundedSelection: false,
+                        scrollbar: {
+                            vertical: 'visible',
+                            horizontal: 'visible',
+                            useShadows: false,
+                            verticalScrollbarSize: 6,
+                            horizontalScrollbarSize: 6
+                        },
+                        padding: { top: 8, bottom: 8 }
                     }}
                 />
             </Suspense>

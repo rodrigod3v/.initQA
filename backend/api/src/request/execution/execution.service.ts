@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import axios, { AxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import { ContractService } from '../../contract/contract.service';
 import { UtilsService } from '../../utils/utils.service';
 
@@ -36,16 +36,27 @@ export class ExecutionService {
     const headers = this.replaceVariables(request.headers, variables);
     const body = this.replaceVariables(request.body, variables);
 
-    const config: AxiosRequestConfig = {
-      method: request.method,
-      url,
-      headers: headers || {},
-      data: body,
-      validateStatus: () => true, // Capture all status codes
+    // Build final headers object
+    const finalHeaders = {
+      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'initQA-System-Agent/1.0',
+      ...(headers || {}),
     };
 
+    // Auto-set Content-Type if body exists and not explicitly set
+    if (body && !finalHeaders['Content-Type'] && !finalHeaders['content-type']) {
+      finalHeaders['Content-Type'] = 'application/json';
+    }
+
     try {
-      const response = await axios(config);
+      const response = await axios({
+        method: request.method,
+        url,
+        headers: finalHeaders,
+        data: body,
+        validateStatus: () => true, // Capture all status codes
+      });
+
       const duration = Date.now() - startTime;
 
       // Validate contract if schema exists
@@ -57,6 +68,12 @@ export class ExecutionService {
         );
       }
 
+      // 4. RUN TEST SCRIPTS
+      let testResults: any[] | null = null;
+      if (request.testScript) {
+        testResults = this.runTestScript(request.testScript, response, duration);
+      }
+
       // Save execution
       const execution = await this.prisma.requestExecution.create({
         data: {
@@ -64,6 +81,7 @@ export class ExecutionService {
           status: response.status,
           duration,
           validationResult: validationResult as any,
+          testResults: testResults as any,
           response: {
             data: response.data,
             headers: response.headers,
@@ -88,6 +106,102 @@ export class ExecutionService {
     }
   }
 
+  private runTestScript(script: string, response: any, duration: number) {
+    const results: any[] = [];
+    const vm = require('vm');
+    const Ajv = require('ajv');
+    const ajv = new Ajv({ allErrors: true });
+
+    const jsonData = response.data;
+    const responseTime = 100; // Mock or calculate if needed, though service already has duration
+
+    const createExpect = (actual: any) => {
+      const matcher = {
+        to: {
+          equal: (expected: any) => {
+            const pass = JSON.stringify(actual) === JSON.stringify(expected);
+            if (!pass) throw new Error(`Expected ${JSON.stringify(actual)} to equal ${JSON.stringify(expected)}`);
+            return matcher;
+          },
+          be: {
+            a: (type: string) => {
+              const pass = (type === 'array') ? Array.isArray(actual) : typeof actual === type;
+              if (!pass) throw new Error(`Expected ${actual} to be a ${type}`);
+              return matcher;
+            },
+            an: (type: string) => matcher.to.be.a(type),
+            oneOf: (list: any[]) => {
+              const pass = list.includes(actual);
+              if (!pass) throw new Error(`Expected ${actual} to be one of ${JSON.stringify(list)}`);
+              return matcher;
+            },
+            below: (val: number) => {
+              const pass = actual < val;
+              if (!pass) throw new Error(`Expected ${actual} to be below ${val}`);
+              return matcher;
+            }
+          },
+          have: {
+            property: (prop: string) => {
+              const pass = actual && Object.prototype.hasOwnProperty.call(actual, prop);
+              if (!pass) throw new Error(`Expected object to have property ${prop}`);
+              return matcher;
+            }
+          }
+        }
+      };
+      return matcher;
+    };
+
+    const context = {
+      pm: {
+        response: {
+          status: response.status,
+          code: response.status,
+          data: response.data,
+          headers: response.headers,
+          responseTime: duration,
+          json: () => jsonData,
+          to: {
+            have: {
+              status: (code: number) => {
+                const pass = response.status === code;
+                results.push({ name: `Status is ${code}`, pass });
+              },
+              jsonSchema: (schema: any) => {
+                const validate = ajv.compile(schema);
+                const valid = validate(jsonData);
+                if (!valid) {
+                  throw new Error(`Schema validation failed: ${ajv.errorsText(validate.errors)}`);
+                }
+              }
+            }
+          }
+        },
+        test: (name: string, fn: Function) => {
+          try {
+            fn();
+            results.push({ name, pass: true });
+          } catch (err) {
+            results.push({ name, pass: false, error: err.message });
+          }
+        },
+        expect: createExpect
+      },
+      console: {
+        log: (...args: any[]) => console.log('[Sandbox]', ...args)
+      }
+    };
+
+    try {
+      vm.runInNewContext(script, context, { timeout: 1000 });
+    } catch (err) {
+      results.push({ name: 'Script Error', pass: false, error: err.message });
+    }
+
+    return results.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+  }
+
   private replaceVariables(target: any, variables: Record<string, any>): any {
     if (!target) return target;
     
@@ -103,6 +217,7 @@ export class ExecutionService {
     str = str.replace(/\{\{\$randomCPF\}\}/g, () => this.utilsService.generateCPF(true));
     str = str.replace(/\{\{\$randomEmail\}\}/g, () => this.utilsService.generateEmail());
     str = str.replace(/\{\{\$randomUUID\}\}/g, () => this.utilsService.generateUUID());
+    str = str.replace(/\{\{\$randomWord\}\}/g, () => this.utilsService.generateWord());
 
     try {
       return typeof target === 'string' ? str : JSON.parse(str);
