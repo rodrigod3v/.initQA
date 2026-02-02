@@ -8,41 +8,21 @@ export class ComparisonService {
 
   constructor(private executionService: ExecutionService) {}
 
-  async compareEnvironments(requestId: string, environmentIds: string[]) {
-    const results = await Promise.all(
-      environmentIds.map(async (envId) => {
-        const execution = await this.executionService.execute(requestId, envId);
-        return {
-          environmentId: envId,
-          execution,
-        };
-      }),
-    );
+  async compare(requestId: string, leftEnvId: string, rightEnvId: string) {
+    const [leftExecution, rightExecution] = await Promise.all([
+      this.executionService.execute(requestId, leftEnvId),
+      this.executionService.execute(requestId, rightEnvId),
+    ]);
 
-    const comparisons: any[] = [];
-    for (let i = 0; i < results.length; i++) {
-      for (let j = i + 1; j < results.length; j++) {
-        const left = results[i];
-        const right = results[j];
+    const leftData = (leftExecution.response as any)?.data;
+    const rightData = (rightExecution.response as any)?.data;
 
-        const leftData = (left.execution.response as any)?.data;
-        const rightData = (right.execution.response as any)?.data;
-
-        const delta = this.differ.diff(leftData, rightData);
-
-        comparisons.push({
-          environments: [left.environmentId, right.environmentId],
-          statusDiff: left.execution.status !== right.execution.status,
-          leftStatus: left.execution.status,
-          rightStatus: right.execution.status,
-          delta,
-        });
-      }
-    }
+    const delta = this.differ.diff(leftData, rightData);
 
     return {
-      results,
-      comparisons,
+      left: leftExecution,
+      right: rightExecution,
+      delta,
     };
   }
 }

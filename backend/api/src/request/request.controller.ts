@@ -27,10 +27,12 @@ export class RequestController {
   create(
     @Body()
     data: {
+      name?: string;
       method: string;
       url: string;
       headers?: any;
       body?: any;
+      testScript?: string;
       projectId: string;
     },
   ) {
@@ -45,12 +47,15 @@ export class RequestController {
     return this.executionService.execute(id, environmentId);
   }
 
-  @Post(':id/compare')
+  @Post('compare')
   compare(
-    @Param('id') id: string,
-    @Body('environmentIds') environmentIds: string[],
+    @Body() data: { requestId: string; leftEnvId: string; rightEnvId: string },
   ) {
-    return this.comparisonService.compareEnvironments(id, environmentIds);
+    return this.comparisonService.compare(
+      data.requestId,
+      data.leftEnvId,
+      data.rightEnvId,
+    );
   }
 
   @Get()

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend/api\"",
     "start:backend": "npm run start:dev -w backend/api",
+    "start:dev": "npm run start:dev -w backend/api",
     "start:frontend": "npm run dev -w frontend",
     "test:backend": "npm run test -w backend/api",
     "build": "npm run build -w backend/api && npm run build -w frontend"

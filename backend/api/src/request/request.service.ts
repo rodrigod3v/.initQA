@@ -6,6 +6,7 @@ export class RequestService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: {
+    name?: string;
     method: string;
     url: string;
     headers?: any;

@@ -33,6 +33,10 @@ export class UtilsService {
     return faker.string.uuid();
   }
 
+  generateWord(): string {
+    return faker.lorem.word();
+  }
+
   /**
    * Simple Fuzzing: Mutates a JSON by removing a field or changing its type
    */

@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import api from '../services/api';
-import { GitCompare, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
+import Editor from '../components/Editor';
+import {
+    Activity,
+    GitCompare,
+    Loader2,
+    Database,
+    AlertTriangle,
+    CheckCircle2,
+    Clock,
+    Terminal
+} from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 
-interface Project {
+interface RequestModel {
     id: string;
     name: string;
 }
@@ -12,68 +25,59 @@ interface Environment {
     name: string;
 }
 
-interface Request {
-    id: string;
-    url: string;
+interface ComparisonResult {
+    left: any;
+    right: any;
+    delta: any;
 }
 
 const Comparison: React.FC = () => {
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [selectedProject, setSelectedProject] = useState('');
+    const { projectId } = useParams<{ projectId: string }>();
+    const [requests, setRequests] = useState<RequestModel[]>([]);
     const [environments, setEnvironments] = useState<Environment[]>([]);
-    const [envLeft, setEnvLeft] = useState('');
-    const [envRight, setEnvRight] = useState('');
-    const [requests, setRequests] = useState<Request[]>([]);
-    const [selectedRequest, setSelectedRequest] = useState('');
-
+    const [selectedRequestId, setSelectedRequestId] = useState<string>('');
+    const [leftEnvId, setLeftEnvId] = useState<string>('');
+    const [rightEnvId, setRightEnvId] = useState<string>('');
+    const [result, setResult] = useState<ComparisonResult | null>(null);
     const [loading, setLoading] = useState(true);
     const [comparing, setComparing] = useState(false);
-    const [diff, setDiff] = useState<any>(null);
 
     useEffect(() => {
-        fetchProjects();
-    }, []);
+        fetchData();
+    }, [projectId]);
 
-    const fetchProjects = async () => {
+    const fetchData = async () => {
+        setLoading(true);
         try {
-            const response = await api.get('/projects');
-            setProjects(response.data);
+            const [reqsRes, envsRes] = await Promise.all([
+                api.get(`/requests?projectId=${projectId}`),
+                api.get(`/projects/${projectId}/environments`)
+            ]);
+            setRequests(reqsRes.data);
+            setEnvironments(envsRes.data);
+
+            if (reqsRes.data.length > 0) setSelectedRequestId(reqsRes.data[0].id);
+            if (envsRes.data.length > 1) {
+                setLeftEnvId(envsRes.data[0].id);
+                setRightEnvId(envsRes.data[1].id);
+            }
+        } catch (err) {
+            console.error('Failed to fetch comparison data');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleProjectChange = async (id: string) => {
-        setSelectedProject(id);
-        setRequests([]);
-        setEnvironments([]);
-        if (!id) return;
-
-        try {
-            const [reqs, envs] = await Promise.all([
-                api.get(`/requests?projectId=${id}`),
-                api.get(`/projects/${id}/environments`)
-            ]);
-            setRequests(reqs.data);
-            setEnvironments(envs.data);
-        } catch (err) {
-            console.error('Failed to load project details');
-        }
-    };
-
     const handleCompare = async () => {
-        if (!selectedRequest || !envLeft || !envRight) return;
+        if (!selectedRequestId || !leftEnvId || !rightEnvId) return;
         setComparing(true);
-        setDiff(null);
         try {
-            const response = await api.get(`/requests/compare`, {
-                params: {
-                    requestId: selectedRequest,
-                    leftEnvId: envLeft,
-                    rightEnvId: envRight,
-                }
+            const response = await api.post('/requests/compare', {
+                requestId: selectedRequestId,
+                leftEnvId,
+                rightEnvId
             });
-            setDiff(response.data.delta || { message: 'No differences found' });
+            setResult(response.data);
         } catch (err) {
             console.error('Comparison failed');
         } finally {
@@ -81,93 +85,140 @@ const Comparison: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>;
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 className="animate-spin text-accent mb-4" size={32} />
+            <p className="text-[10px] font-mono text-secondary-text uppercase tracking-widest">Scanning Network Nodes...</p>
+        </div>
+    );
 
     return (
-        <div className="max-w-5xl mx-auto">
-            <div className="mb-10">
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Response Comparison</h1>
-                <p className="text-slate-600 dark:text-slate-400 mt-2">Compare API responses between different environments</p>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Project</label>
+        <div className="flex flex-col h-[calc(100vh-80px)] gap-4 overflow-hidden">
+            {/* Control Bar - Industrial Selector */}
+            <Card className="p-3 border-main bg-surface/30">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                            <Activity size={12} />
+                            TARGET_PROC
+                        </span>
                         <select
-                            value={selectedProject}
-                            onChange={(e) => handleProjectChange(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border-0 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                            value={selectedRequestId}
+                            onChange={(e) => setSelectedRequestId(e.target.value)}
+                            className="bg-deep border-sharp border-main px-4 py-1.5 font-mono text-xs text-primary-text focus:outline-none focus:border-accent/50"
                         >
-                            <option value="">Choose a project...</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {requests.map(r => <option key={r.id} value={r.id}>{r.name.toUpperCase()}</option>)}
                         </select>
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Request</label>
-                        <select
-                            value={selectedRequest}
-                            onChange={(e) => setSelectedRequest(e.target.value)}
-                            disabled={!selectedProject}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border-0 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                        >
-                            <option value="">Choose a request...</option>
-                            {requests.map(r => <option key={r.id} value={r.id}>{r.url}</option>)}
-                        </select>
-                    </div>
-                </div>
 
-                <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl">
-                    <div className="flex-1 space-y-2 w-full">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Environment A</label>
-                        <select
-                            value={envLeft}
-                            onChange={(e) => setEnvLeft(e.target.value)}
-                            disabled={!selectedProject}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option value="">Select env...</option>
-                            {environments.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
-                    </div>
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-full">
-                        <ArrowRight size={20} />
-                    </div>
-                    <div className="flex-1 space-y-2 w-full">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Environment B</label>
-                        <select
-                            value={envRight}
-                            onChange={(e) => setEnvRight(e.target.value)}
-                            disabled={!selectedProject}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option value="">Select env...</option>
-                            {environments.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
-                    </div>
-                </div>
+                    <div className="h-6 w-[1px] bg-main mx-2" />
 
-                <button
-                    onClick={handleCompare}
-                    disabled={comparing || !selectedRequest || !envLeft || !envRight}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-indigo-600/20"
-                >
-                    {comparing ? <Loader2 className="animate-spin" size={20} /> : <GitCompare size={20} />}
-                    Analyze Differences
-                </button>
-
-                {diff && (
-                    <div className="mt-10 animate-in fade-in slide-in-from-top-4 duration-500">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <AlertCircle size={20} className="text-indigo-500" />
-                            Diff Analysis
-                        </h3>
-                        <div className="bg-slate-950 rounded-2xl p-6 font-mono text-xs text-indigo-400 overflow-auto max-h-96">
-                            <pre>{JSON.stringify(diff, null, 2)}</pre>
+                    <div className="flex items-center gap-4 flex-1">
+                        <div className="flex items-center gap-2 flex-1">
+                            <span className="text-[9px] font-mono text-secondary-text uppercase">NODE_A</span>
+                            <select
+                                value={leftEnvId}
+                                onChange={(e) => setLeftEnvId(e.target.value)}
+                                className="flex-1 bg-deep border-sharp border-main px-4 py-1.5 font-mono text-xs text-secondary-text focus:outline-none focus:border-accent/50"
+                            >
+                                <option value="">SELECT_ENV</option>
+                                {environments.map(e => <option key={e.id} value={e.id}>{e.name.toUpperCase()}</option>)}
+                            </select>
+                        </div>
+                        <GitCompare size={16} className="text-accent opacity-50" />
+                        <div className="flex items-center gap-2 flex-1">
+                            <span className="text-[9px] font-mono text-secondary-text uppercase">NODE_B</span>
+                            <select
+                                value={rightEnvId}
+                                onChange={(e) => setRightEnvId(e.target.value)}
+                                className="flex-1 bg-deep border-sharp border-main px-4 py-1.5 font-mono text-xs text-secondary-text focus:outline-none focus:border-accent/50"
+                            >
+                                <option value="">SELECT_ENV</option>
+                                {environments.map(e => <option key={e.id} value={e.id}>{e.name.toUpperCase()}</option>)}
+                            </select>
                         </div>
                     </div>
-                )}
+
+                    <Button
+                        onClick={handleCompare}
+                        disabled={comparing || !selectedRequestId || !leftEnvId || !rightEnvId}
+                        glow
+                        className="px-8 text-xs uppercase tracking-widest"
+                    >
+                        {comparing ? <Loader2 className="animate-spin mr-2" size={14} /> : <GitCompare className="mr-2" size={14} />}
+                        Execute_Scan
+                    </Button>
+                </div>
+            </Card>
+
+            {/* Comparison Grid */}
+            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+                {/* Result A */}
+                <div className="flex flex-col border-sharp border-main bg-surface/20 overflow-hidden">
+                    <div className="px-4 py-2 bg-deep border-b border-main flex justify-between items-center">
+                        <span className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest">DATA_FEED_A</span>
+                        {result && (
+                            <div className="flex items-center gap-3">
+                                <span className={`text-[9px] font-mono ${result.left.status < 400 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    S_{result.left.status}
+                                </span>
+                                <span className="text-[9px] font-mono text-secondary-text">{result.left.duration}ms</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-1 bg-deep p-1">
+                        <Editor
+                            value={result ? JSON.stringify(result.left.response.data, null, 2) : ''}
+                            onChange={() => { }}
+                            readOnly
+                            height="100%"
+                        />
+                    </div>
+                </div>
+
+                {/* Result B */}
+                <div className="flex flex-col border-sharp border-main bg-surface/20 overflow-hidden">
+                    <div className="px-4 py-2 bg-deep border-b border-main flex justify-between items-center">
+                        <span className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest">DATA_FEED_B</span>
+                        {result && (
+                            <div className="flex items-center gap-3">
+                                <span className={`text-[9px] font-mono ${result.right.status < 400 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    S_{result.right.status}
+                                </span>
+                                <span className="text-[9px] font-mono text-secondary-text">{result.right.duration}ms</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-1 bg-deep p-1">
+                        <Editor
+                            value={result ? JSON.stringify(result.right.response.data, null, 2) : ''}
+                            onChange={() => { }}
+                            readOnly
+                            height="100%"
+                        />
+                    </div>
+                </div>
             </div>
+
+            {/* Diff Summary - Footer Overlay */}
+            {result && (
+                <Card className="border-accent/30 bg-accent/5 p-3 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-6">
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-mono text-secondary-text uppercase">Identity_Status</span>
+                            <div className={`flex items-center gap-2 font-mono text-xs font-bold uppercase
+                                ${result.delta ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                {result.delta ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                                {result.delta ? 'Symmetry_Violation_Detected' : 'Structural_Sync_Confirmed'}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 opacity-50">
+                        <Terminal size={12} className="text-accent" />
+                        <span className="text-[8px] font-mono text-accent uppercase tracking-widest">Sync_Engine_v1.0.4</span>
+                    </div>
+                </Card>
+            )}
         </div>
     );
 };
