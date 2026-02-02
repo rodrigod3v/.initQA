@@ -3,16 +3,20 @@
   "version": "0.0.1",
   "private": true,
   "workspaces": [
-    "backend",
+    "backend/api",
     "frontend"
   ],
   "scripts": {
-    "start:backend": "npm run start:dev -w backend",
+    "dev": "concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend/api\"",
+    "start:backend": "npm run start:dev -w backend/api",
     "start:frontend": "npm run dev -w frontend",
-    "test:backend": "npm run test -w backend",
-    "build": "npm run build -w backend && npm run build -w frontend"
+    "test:backend": "npm run test -w backend/api",
+    "build": "npm run build -w backend/api && npm run build -w frontend"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }

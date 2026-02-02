@@ -16,6 +16,7 @@ backend/api/dist/
 backend/api/prisma/*.db
 backend/api/prisma/*.db-journal
 backend/api/generated/
+/generated/prisma/
 
 # Frontend (React/Vite)
 frontend/node_modules/
