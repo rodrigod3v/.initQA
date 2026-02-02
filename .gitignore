@@ -1,3 +1,4 @@
+# Common
 node_modules/
 dist/
 build/
@@ -5,3 +6,25 @@ build/
 *.log
 coverage/
 .DS_Store
+Thumbs.db
+
+# Backend (NestJS/Prisma)
+backend/node_modules/
+backend/dist/
+backend/api/node_modules/
+backend/api/dist/
+backend/api/prisma/*.db
+backend/api/prisma/*.db-journal
+backend/api/generated/
+
+# Frontend (React/Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
