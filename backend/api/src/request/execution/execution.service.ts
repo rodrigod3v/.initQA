@@ -29,8 +29,6 @@ export class ExecutionService {
       variables = (environment?.variables as any) || {};
     }
 
-    const startTime = Date.now();
-    
     // Replace placeholders in URL, headers, and body
     const url = this.replaceVariables(request.url, variables);
     const headers = this.replaceVariables(request.headers, variables);
@@ -48,62 +46,85 @@ export class ExecutionService {
       finalHeaders['Content-Type'] = 'application/json';
     }
 
-    try {
-      const response = await axios({
-        method: request.method,
-        url,
-        headers: finalHeaders,
-        data: body,
-        validateStatus: () => true, // Capture all status codes
-      });
+    let attempts = 0;
+    const maxAttempts = request.method === 'GET' ? 3 : 1;
+    let response: any;
+    const startTime = Date.now();
 
-      const duration = Date.now() - startTime;
-
-      // Validate contract if schema exists
-      let validationResult: any = null;
-      if (request.expectedResponseSchema) {
-        validationResult = this.contractService.validate(
-          request.expectedResponseSchema,
-          response.data,
-        );
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        console.log(`[EXECUTION] [${request.method}] Attempt ${attempts}/${maxAttempts} for ${url}`);
+        
+        response = await axios({
+          method: request.method,
+          url,
+          headers: finalHeaders,
+          data: body,
+          timeout: 30000, // 30 seconds timeout
+          validateStatus: () => true, // Capture all status codes
+        });
+        
+        break;
+      } catch (error) {
+        const isNetworkError = error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT';
+        if (attempts >= maxAttempts || !isNetworkError) {
+          console.error(`[EXECUTION] [ERROR] ${url}: ${error.message}`);
+          
+          const duration = Date.now() - startTime;
+          return await this.prisma.requestExecution.create({
+            data: {
+              requestId: request.id,
+              status: error.code === 'ETIMEDOUT' ? 408 : 500,
+              duration,
+              response: {
+                error: 'EXECUTION_FAILED',
+                message: error.message,
+                code: error.code,
+                attempts
+              } as any,
+            },
+          });
+        }
+        console.warn(`[EXECUTION] [RETRY] Failed attempt ${attempts} for ${url}. Error: ${error.code}`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
       }
-
-      // 4. RUN TEST SCRIPTS
-      let testResults: any[] | null = null;
-      if (request.testScript) {
-        testResults = this.runTestScript(request.testScript, response, duration);
-      }
-
-      // Save execution
-      const execution = await this.prisma.requestExecution.create({
-        data: {
-          requestId: request.id,
-          status: response.status,
-          duration,
-          validationResult: validationResult as any,
-          testResults: testResults as any,
-          response: {
-            data: response.data,
-            headers: response.headers,
-          } as any,
-        },
-      });
-
-      return execution;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      return this.prisma.requestExecution.create({
-        data: {
-          requestId: request.id,
-          status: error.response?.status || 500,
-          duration,
-          response: {
-            error: error.message,
-            data: error.response?.data,
-          } as any,
-        },
-      });
     }
+
+    const duration = Date.now() - startTime;
+    console.log(`[EXECUTION] [SUCCESS] ${url} returned ${response.status} in ${duration}ms`);
+
+    // Validate contract if schema exists
+    let validationResult: any = null;
+    if (request.expectedResponseSchema) {
+      validationResult = this.contractService.validate(
+        request.expectedResponseSchema,
+        response.data,
+      );
+    }
+
+    // RUN TEST SCRIPTS
+    let testResults: any[] | null = null;
+    if (request.testScript) {
+      testResults = this.runTestScript(request.testScript, response, duration);
+    }
+
+    // Save execution
+    const execution = await this.prisma.requestExecution.create({
+      data: {
+        requestId: request.id,
+        status: response.status,
+        duration,
+        validationResult: validationResult as any,
+        testResults: testResults as any,
+        response: {
+          data: response.data,
+          headers: response.headers,
+        } as any,
+      },
+    });
+
+    return execution;
   }
 
   private runTestScript(script: string, response: any, duration: number) {
