@@ -9,8 +9,8 @@ export const Sidebar: React.FC = () => {
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Projects', path: '/projects' },
-        { icon: Send, label: 'Requests', path: '/requests' },
-        { icon: GitCompare, label: 'Comparator', path: '/comparison' },
+        { icon: Send, label: 'Collections', path: '/requests' },
+        { icon: GitCompare, label: 'Comparison', path: '/comparison' },
     ];
 
     const handleLogout = () => {

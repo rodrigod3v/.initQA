@@ -12,8 +12,12 @@ dist/
 **/dist/
 build/
 **/build/
+dist-ssr/
+**/dist-ssr/
 .next/
 .cache/
+*.tsbuildinfo
+**/tsconfig*.tsbuildinfo
 
 # Databases (SQLite & Prisma)
 *.db
@@ -45,7 +49,14 @@ Thumbs.db
 coverage/
 **/coverage/
 .nyc_output/
+cypress/screenshots/
+cypress/videos/
 
 # Misc
 .tmp/
 tmp/
+pids/
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
