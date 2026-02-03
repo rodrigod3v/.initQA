@@ -30,9 +30,9 @@ export class ExecutionService {
     }
 
     // Replace placeholders in URL, headers, and body
-    const url = this.replaceVariables(request.url, variables);
-    const headers = this.replaceVariables(request.headers, variables);
-    const body = this.replaceVariables(request.body, variables);
+    const url = this.utilsService.replaceVariables(request.url, variables);
+    const headers = this.utilsService.replaceVariables(request.headers, variables);
+    const body = this.utilsService.replaceVariables(request.body, variables);
 
     // Build final headers object
     const finalHeaders = {
@@ -225,27 +225,4 @@ export class ExecutionService {
     return results.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
   }
 
-  private replaceVariables(target: any, variables: Record<string, any>): any {
-    if (!target) return target;
-    
-    let str = typeof target === 'string' ? target : JSON.stringify(target);
-    
-    // Replace user variables
-    Object.keys(variables).forEach((key) => {
-      const placeholder = new RegExp(`{{${key}}}`, 'g');
-      str = str.replace(placeholder, variables[key]);
-    });
-
-    // Replace system variables
-    str = str.replace(/\{\{\$randomCPF\}\}/g, () => this.utilsService.generateCPF(true));
-    str = str.replace(/\{\{\$randomEmail\}\}/g, () => this.utilsService.generateEmail());
-    str = str.replace(/\{\{\$randomUUID\}\}/g, () => this.utilsService.generateUUID());
-    str = str.replace(/\{\{\$randomWord\}\}/g, () => this.utilsService.generateWord());
-
-    try {
-      return typeof target === 'string' ? str : JSON.parse(str);
-    } catch {
-      return str;
-    }
-  }
 }

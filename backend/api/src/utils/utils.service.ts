@@ -60,4 +60,28 @@ export class UtilsService {
 
     return mutated;
   }
+
+  replaceVariables(target: any, variables: Record<string, any>): any {
+    if (!target) return target;
+    
+    let str = typeof target === 'string' ? target : JSON.stringify(target);
+    
+    // Replace user variables
+    Object.keys(variables).forEach((key) => {
+      const placeholder = new RegExp(`{{${key}}}`, 'g');
+      str = str.replace(placeholder, variables[key]);
+    });
+
+    // Replace system variables
+    str = str.replace(/\{\{\$randomCPF\}\}/g, () => this.generateCPF(true));
+    str = str.replace(/\{\{\$randomEmail\}\}/g, () => this.generateEmail());
+    str = str.replace(/\{\{\$randomUUID\}\}/g, () => this.generateUUID());
+    str = str.replace(/\{\{\$randomWord\}\}/g, () => this.generateWord());
+
+    try {
+      return typeof target === 'string' ? str : JSON.parse(str);
+    } catch {
+      return str;
+    }
+  }
 }

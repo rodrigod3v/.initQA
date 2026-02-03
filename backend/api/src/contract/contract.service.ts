@@ -4,7 +4,7 @@ import * as yaml from 'js-yaml';
 
 @Injectable()
 export class ContractService {
-  private ajv = new Ajv({ allErrors: true, strict: false });
+  private ajv = new Ajv({ allErrors: true });
 
   parseSwagger(content: string): any {
     try {

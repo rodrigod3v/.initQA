@@ -23,7 +23,8 @@ interface DashboardStats {
     };
     lastExecutions: Array<{
         id: string;
-        requestName: string;
+        type: 'API' | 'WEB';
+        name: string;
         projectName: string;
         method: string;
         status: number;
@@ -161,12 +162,12 @@ const Dashboard: React.FC = () => {
                                 <div key={exec.id} className="p-3 hover:bg-surface/50 transition-colors flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
                                         <div className={`p-1.5 border-sharp border ${exec.status < 400 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
-                                            {exec.status < 400 ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+                                            {exec.type === 'WEB' ? <Zap size={12} /> : (exec.status < 400 ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />)}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[8px] font-mono text-accent uppercase bg-accent/5 px-1">{exec.method}</span>
-                                                <span className="text-[10px] font-mono font-bold text-primary-text truncate max-w-[150px]">{exec.requestName}</span>
+                                                <span className={`text-[8px] font-mono uppercase px-1 ${exec.type === 'WEB' ? 'bg-accent/20 text-accent' : 'bg-surface border border-main text-secondary-text'}`}>{exec.type === 'WEB' ? 'WEB_FLOW' : exec.method}</span>
+                                                <span className="text-[10px] font-mono font-bold text-primary-text truncate max-w-[150px]">{exec.name}</span>
                                             </div>
                                             <div className="flex items-center gap-2 mt-0.5">
                                                 <span className="text-[8px] font-mono text-secondary-text uppercase tracking-tight italic">{exec.projectName}</span>
@@ -176,7 +177,9 @@ const Dashboard: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className={`text-[10px] font-mono font-bold ${exec.status < 400 ? 'text-emerald-500' : 'text-rose-500'}`}>STATUS_{exec.status}</div>
+                                        <div className={`text-[10px] font-mono font-bold ${exec.status < 400 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {exec.type === 'WEB' ? (exec.status === 200 ? 'SUCCESS' : 'FAILED') : `STATUS_${exec.status}`}
+                                        </div>
                                         <div className="text-[8px] font-mono text-secondary-text uppercase">{exec.duration}ms</div>
                                     </div>
                                 </div>
