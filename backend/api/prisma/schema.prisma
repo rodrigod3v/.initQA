@@ -20,6 +20,8 @@ model Project {
   updatedAt    DateTime      @updatedAt
   environments Environment[]
   requests     Request[]
+  webScenarios WebScenario[]
+  loadTests    LoadTest[]
 }
 
 model Environment {
@@ -29,6 +31,7 @@ model Environment {
   projectId String
   project   Project  @relation(fields: [projectId], references: [id])
   executions RequestExecution[]
+  webExecutions WebExecution[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -61,6 +64,51 @@ model RequestExecution {
   validationResult Json?
   testResults      Json?
   createdAt        DateTime     @default(now())
+}
+
+model WebScenario {
+  id        String         @id @default(uuid())
+  name      String
+  steps     Json           // Array of steps: { type: 'GOTO' | 'CLICK' | 'FILL' | 'ASSERT_VISIBLE', selector?: string, value?: string }
+  projectId String
+  project   Project        @relation(fields: [projectId], references: [id])
+  executions WebExecution[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model WebExecution {
+  id         String       @id @default(uuid())
+  scenarioId String
+  scenario   WebScenario  @relation(fields: [scenarioId], references: [id])
+  environmentId String?
+  environment   Environment? @relation(fields: [environmentId], references: [id])
+  status     String      // "SUCCESS", "FAILED"
+  duration   Int
+  logs       Json?       // Details of each step execution
+  screenshot String?     // Path to error screenshot if failed
+  createdAt  DateTime    @default(now())
+}
+
+model LoadTest {
+  id        String          @id @default(uuid())
+  name      String
+  config    Json            // k6 config: { targetUrl, vus, duration, rampUpStages }
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id])
+  executions LoadExecution[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model LoadExecution {
+  id         String   @id @default(uuid())
+  loadTestId String
+  loadTest   LoadTest @relation(fields: [loadTestId], references: [id])
+  status     String   // "FINISHED", "CRASHED"
+  duration   Int
+  results    Json?    // Serialized k6 JSON output
+  createdAt  DateTime @default(now())
 }
 
 model User {

@@ -60,3 +60,24 @@ pids/
 *.seed
 *.pid.lock
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+*.sqlite
+*.sqlite-journal
+
+# Editor Directories and Files
+.idea
+.vscode
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.sw?
+
+# Testing artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Misc
+.DS_Store
+Thumbs.db

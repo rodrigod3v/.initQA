@@ -9,9 +9,21 @@ import { AuthModule } from './auth/auth.module';
 import { ContractModule } from './contract/contract.module';
 import { UtilsModule } from './utils/utils.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { WebScenarioModule } from './web-scenario/web-scenario.module';
+import { LoadTestModule } from './load-test/load-test.module';
 
 @Module({
-  imports: [ProjectModule, PrismaModule, RequestModule, AuthModule, ContractModule, UtilsModule, DashboardModule],
+  imports: [
+    ProjectModule,
+    PrismaModule,
+    RequestModule,
+    AuthModule,
+    ContractModule,
+    UtilsModule,
+    DashboardModule,
+    WebScenarioModule,
+    LoadTestModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })

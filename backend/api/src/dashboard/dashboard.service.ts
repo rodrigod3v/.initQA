@@ -7,26 +7,67 @@ export class DashboardService {
 
   async getStats() {
     // 1. Global Stats
-    const [projectCount, requestCount, executionCount] = await Promise.all([
+    const [projectCount, requestCount, apiExecCount, webExecCount, loadExecCount] = await Promise.all([
       this.prisma.project.count(),
       this.prisma.request.count(),
       this.prisma.requestExecution.count(),
+      this.prisma.webExecution.count(),
+      this.prisma.loadExecution.count(),
     ]);
 
-    // 2. Last 10 Executions
-    const lastExecutions = await this.prisma.requestExecution.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        request: {
-          select: {
-            name: true,
-            method: true,
-            project: { select: { name: true } },
+    // 2. Combined Last 10 Executions
+    const [apiExecutions, webExecutions] = await Promise.all([
+      this.prisma.requestExecution.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          request: {
+            select: {
+              name: true,
+              method: true,
+              project: { select: { name: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.webExecution.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          scenario: {
+            select: {
+              name: true,
+              project: { select: { name: true } },
+            },
+          },
+        },
+      })
+    ]);
+
+    const combinedExecutions = [
+      ...apiExecutions.map(e => ({
+        id: e.id,
+        type: 'API',
+        name: e.request.name,
+        projectName: e.request.project.name,
+        method: e.request.method,
+        status: e.status,
+        duration: e.duration,
+        createdAt: e.createdAt
+      })),
+      ...webExecutions.map(e => ({
+        id: e.id,
+        type: 'WEB',
+        name: e.scenario.name,
+        projectName: e.scenario.project.name,
+        method: 'WEB',
+        status: e.status === 'SUCCESS' ? 200 : 500,
+        duration: e.duration,
+        createdAt: e.createdAt
+      }))
+    ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 10);
 
     // 3. Failures by Project (for chart)
     const failedExecutions = await this.prisma.requestExecution.groupBy({
@@ -102,28 +143,26 @@ export class DashboardService {
     // UNLESS I add it now. But I shouldn't modify schema without reason.
     // Let's check if anyone added it.
     
+    const totalExecs = apiExecCount + webExecCount;
+    const failedApiCount = failedExecutions.reduce((acc, curr) => acc + curr._count.id, 0);
+    const failedWebCount = await this.prisma.webExecution.count({ where: { status: 'FAILED' } });
+
+    const successRate = totalExecs > 0
+      ? Math.round(((totalExecs - (failedApiCount + failedWebCount)) / totalExecs) * 100)
+      : 100;
+
     return {
       global: {
         projects: projectCount,
-        requests: requestCount,
-        executions: executionCount,
-        successRate: executionCount > 0 
-            ? Math.round(((executionCount - failedExecutions.reduce((acc, curr) => acc + curr._count.id, 0)) / executionCount) * 100)
-            : 100
+        requests: requestCount + (await this.prisma.webScenario.count()),
+        executions: apiExecCount + webExecCount + loadExecCount,
+        successRate
       },
-      lastExecutions: lastExecutions.map(e => ({
-        id: e.id,
-        requestName: e.request.name,
-        projectName: e.request.project.name,
-        method: e.request.method,
-        status: e.status,
-        duration: e.duration,
-        createdAt: e.createdAt
-      })),
+      lastExecutions: combinedExecutions,
       unstableRequests,
       projectFailures: Object.entries(projectFailures).map(([id, stats]: [string, any]) => ({
-          id,
-          ...stats
+        id,
+        ...stats
       })),
       environmentFailures: await this.getEnvironmentFailures()
     };

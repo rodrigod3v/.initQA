@@ -6,6 +6,8 @@ import Projects from './pages/Projects';
 import Requests from './pages/Requests';
 import Comparison from './pages/Comparison';
 import Dashboard from './pages/Dashboard';
+import WebScenarios from './pages/WebScenarios';
+import LoadTests from './pages/LoadTests';
 import Layout from './components/Layout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -41,6 +43,38 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <Requests />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/web"
+        element={
+          <ProtectedRoute>
+            <WebScenarios />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/load"
+        element={
+          <ProtectedRoute>
+            <LoadTests />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/automation"
+        element={
+          <ProtectedRoute>
+            <WebScenarios />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/performance"
+        element={
+          <ProtectedRoute>
+            <LoadTests />
           </ProtectedRoute>
         }
       />
