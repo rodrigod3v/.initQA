@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Editor from '../components/Editor';
 import {
@@ -30,6 +30,7 @@ interface ComparisonResult {
 }
 
 const Comparison: React.FC = () => {
+    const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
     const [requests, setRequests] = useState<RequestModel[]>([]);
     const [environments, setEnvironments] = useState<Environment[]>([]);
@@ -45,6 +46,10 @@ const Comparison: React.FC = () => {
     }, [projectId]);
 
     const fetchData = async () => {
+        if (!projectId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const [reqsRes, envsRes] = await Promise.all([
@@ -82,6 +87,21 @@ const Comparison: React.FC = () => {
             setComparing(false);
         }
     };
+
+    if (!projectId) return (
+        <div className="flex flex-col items-center justify-center h-full space-y-6">
+            <div className="p-8 border-sharp border border-main bg-surface/30 text-center max-w-md">
+                <GitCompare className="mx-auto text-accent mb-4 opacity-40" size={48} />
+                <h2 className="text-lg font-bold text-primary-text mb-2 font-mono tracking-tighter uppercase">SCAN_INITIALIZATION_ERROR</h2>
+                <p className="text-[10px] text-secondary-text mb-6 font-mono uppercase tracking-[0.2em] italic">
+                    PROJECT_CONTEXT_UNDEFINED: SYMMETRY SCANS REQUIRE ACTIVE PROJECT MAPPING TO RESOLVE NETWORK NODES.
+                </p>
+                <Button onClick={() => navigate('/projects')} glow className="w-full text-[10px] tracking-widest uppercase py-3">
+                    ENTER_PROJECT_DATABASE
+                </Button>
+            </div>
+        </div>
+    );
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-full">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Send, GitCompare, LogOut, Terminal } from 'lucide-react';
+import { LayoutDashboard, Send, GitCompare, LogOut, Terminal, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
@@ -8,9 +8,10 @@ export const Sidebar: React.FC = () => {
     const navigate = useNavigate();
 
     const navItems = [
-        { icon: LayoutDashboard, label: 'Projects', path: '/projects' },
-        { icon: Send, label: 'Collections', path: '/requests' },
-        { icon: GitCompare, label: 'Comparison', path: '/comparison' },
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+        { icon: Layers, label: 'Projects', path: '/projects' },
+        { icon: Send, label: 'Requests', path: '/requests' },
+        { icon: GitCompare, label: 'Comparator', path: '/comparison' },
     ];
 
     const handleLogout = () => {

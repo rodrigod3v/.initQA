@@ -10,7 +10,7 @@ interface ConfirmModalProps {
     title: string;
     message: string;
     confirmText?: string;
-    variant?: 'danger' | 'primary';
+    variant?: 'danger' | 'accent';
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -30,7 +30,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         <AlertTriangle size={24} />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-mono text-primary-text leading-relaxed">
+                        <p className="text-sm font-mono text-primary-text leading-relaxed uppercase">
                             {message}
                         </p>
                     </div>
@@ -45,7 +45,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         Cancel
                     </Button>
                     <Button
-                        variant={variant}
+                        variant={variant === 'danger' ? 'danger' : 'primary'}
                         onClick={() => {
                             onConfirm();
                             onClose();
