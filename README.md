@@ -32,6 +32,7 @@ The platform treats "Infrastructure-as-Code" seriously, offering a dual-mode edi
 - **Styling**: TailwindCSS + Custom "Deep Space" Theme
 - **Icons**: Lucide React
 - **HTTP Client**: Axios
+- **State Management**: Zustand (with Optimistic UI Updates & Debounce)
 
 **Backend**
 - **Framework**: NestJS

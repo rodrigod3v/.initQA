@@ -34,11 +34,7 @@ import { Card } from '../components/ui/Card';
 import { Tabs } from '../components/ui/Tabs';
 import { Modal } from '../components/ui/Modal';
 
-interface Step {
-    type: 'GOTO' | 'CLICK' | 'DOUBLE_CLICK' | 'RIGHT_CLICK' | 'FILL' | 'TYPE' | 'KEY_PRESS' | 'HOVER' | 'SELECT' | 'CHECK' | 'UNCHECK' | 'SUBMIT' | 'RELOAD' | 'WAIT' | 'SCROLL' | 'ASSERT_VISIBLE' | 'ASSERT_HIDDEN' | 'ASSERT_TEXT' | 'ASSERT_VALUE' | 'ASSERT_URL' | 'ASSERT_TITLE';
-    selector?: string;
-    value?: string;
-}
+import { useScenarioStore, type WebScenario, type Step } from '../stores/scenarioStore';
 
 interface Environment {
     id: string;
@@ -46,25 +42,27 @@ interface Environment {
     variables: any;
 }
 
-interface WebScenario {
-    id: string;
-    name: string;
-    steps: Step[];
-    projectId: string;
-}
-
 const WebScenarios: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
-    const [scenarios, setScenarios] = useState<WebScenario[]>([]);
-    const [selectedScenario, setSelectedScenario] = useState<WebScenario | null>(null);
-    const [loading, setLoading] = useState(true);
+
+    // Store Hooks
+    const scenarios = useScenarioStore(state => state.scenarios);
+    const selectedScenario = useScenarioStore(state => state.selectedScenario);
+    const isLoading = useScenarioStore(state => state.isLoading);
+    const syncStatus = useScenarioStore(state => state.syncStatus);
+
+    const fetchScenarios = useScenarioStore(state => state.fetchScenarios);
+    const selectScenario = useScenarioStore(state => state.selectScenario);
+    const addScenario = useScenarioStore(state => state.addScenario);
+    const updateLocalScenario = useScenarioStore(state => state.updateLocalScenario);
+    const saveScenario = useScenarioStore(state => state.saveScenario);
+    const deleteScenario = useScenarioStore(state => state.deleteScenario);
     const [executing, setExecuting] = useState(false);
     const [lastExecution, setLastExecution] = useState<any>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newScenarioName, setNewScenarioName] = useState('');
     const [scenarioToEdit, setScenarioToEdit] = useState<WebScenario | null>(null);
     const [scenarioToDelete, setScenarioToDelete] = useState<WebScenario | null>(null);
-    const [saving, setSaving] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
     const [environments, setEnvironments] = useState<Environment[]>([]);
@@ -79,7 +77,7 @@ const WebScenarios: React.FC = () => {
     useEffect(() => {
         const id = projectId || selectedProjectId;
         if (id) {
-            fetchScenarios();
+            fetchScenarios(id);
             fetchEnvironments(id);
         }
         fetchProjects();
@@ -109,26 +107,12 @@ const WebScenarios: React.FC = () => {
         }
     };
 
-    const fetchScenarios = async () => {
-        setLoading(true);
-        try {
-            const currentProjectId = projectId || selectedProjectId;
-            if (!currentProjectId) {
-                setScenarios([]);
-                setLoading(false);
-                return;
-            }
-            const response = await api.get(`/web-scenarios?projectId=${currentProjectId}`);
-            setScenarios(response.data);
-            if (response.data.length > 0 && !selectedScenario) {
-                setSelectedScenario(response.data[0]);
-            }
-        } catch (err) {
-            console.error('Failed to fetch scenarios');
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        const id = projectId || selectedProjectId;
+        if (id) {
+            fetchScenarios(id);
         }
-    };
+    }, [projectId, selectedProjectId]);
 
 
     const fetchProjectHistory = async () => {
@@ -151,7 +135,7 @@ const WebScenarios: React.FC = () => {
 
     useEffect(() => {
         if (!projectId && selectedProjectId) {
-            fetchScenarios();
+            fetchScenarios(selectedProjectId);
         }
     }, [selectedProjectId]);
 
@@ -162,7 +146,7 @@ const WebScenarios: React.FC = () => {
             try {
                 const response = await api.get(`/web-scenarios?projectId=${selectedProjectId}`);
                 currentScenarios = response.data;
-                setScenarios(response.data);
+                // Do nothing, store handles this via fetchScenarios
             } catch (e) {
                 console.error('Failed to refresh scenarios before run');
             }
@@ -207,18 +191,7 @@ const WebScenarios: React.FC = () => {
 
     const handleSave = async () => {
         if (!selectedScenario) return;
-        setSaving(true);
-        try {
-            await api.patch(`/web-scenarios/${selectedScenario.id}`, {
-                name: selectedScenario.name,
-                steps: selectedScenario.steps
-            });
-            setScenarios(scenarios.map(s => s.id === selectedScenario.id ? selectedScenario : s));
-        } catch (err) {
-            console.error('Failed to save');
-        } finally {
-            setSaving(false);
-        }
+        await saveScenario(selectedScenario.id);
     };
 
 
@@ -237,11 +210,7 @@ const WebScenarios: React.FC = () => {
     const confirmDelete = async () => {
         if (!scenarioToDelete) return;
         try {
-            await api.delete(`/web-scenarios/${scenarioToDelete.id}`);
-            if (selectedScenario?.id === scenarioToDelete.id) {
-                setSelectedScenario(null);
-            }
-            fetchScenarios();
+            await deleteScenario(scenarioToDelete.id);
             setScenarioToDelete(null);
         } catch (err) {
             console.error('Failed to delete scenario');
@@ -254,8 +223,8 @@ const WebScenarios: React.FC = () => {
 
         try {
             if (scenarioToEdit) {
-                await api.patch(`/web-scenarios/${scenarioToEdit.id}`, { name: newScenarioName });
-                fetchScenarios();
+                updateLocalScenario(scenarioToEdit.id, { name: newScenarioName });
+                await saveScenario(scenarioToEdit.id);
             } else {
                 if (!newScenarioName.trim() || (!projectId && !selectedProjectId)) return;
                 const response = await api.post('/web-scenarios', {
@@ -263,8 +232,7 @@ const WebScenarios: React.FC = () => {
                     projectId: projectId || selectedProjectId,
                     steps: [{ type: 'GOTO', value: 'https://www.google.com' }]
                 });
-                setScenarios([...scenarios, response.data]);
-                setSelectedScenario(response.data);
+                addScenario(response.data);
             }
 
             setNewScenarioName('');
@@ -296,20 +264,20 @@ const WebScenarios: React.FC = () => {
     const addStep = () => {
         if (!selectedScenario) return;
         const newSteps = [...selectedScenario.steps, { type: 'CLICK', selector: '' }];
-        setSelectedScenario({ ...selectedScenario, steps: newSteps as any });
+        updateLocalScenario(selectedScenario.id, { steps: newSteps as any });
     };
 
     const updateStep = (index: number, field: keyof Step, value: string) => {
         if (!selectedScenario) return;
         const newSteps = [...selectedScenario.steps];
         newSteps[index] = { ...newSteps[index], [field]: value };
-        setSelectedScenario({ ...selectedScenario, steps: newSteps });
+        updateLocalScenario(selectedScenario.id, { steps: newSteps });
     };
 
     const removeStep = (index: number) => {
         if (!selectedScenario) return;
         const newSteps = selectedScenario.steps.filter((_, i) => i !== index);
-        setSelectedScenario({ ...selectedScenario, steps: newSteps });
+        updateLocalScenario(selectedScenario.id, { steps: newSteps });
     };
 
     const openScriptEditor = () => {
@@ -332,20 +300,9 @@ const WebScenarios: React.FC = () => {
             }
 
             const updatedScenario = { ...selectedScenario, steps: parsed };
-            setSelectedScenario(updatedScenario);
-
-            // Update local scenarios list immediately to prevent data loss on switch
-            setScenarios(prev => prev.map(s => s.id === updatedScenario.id ? updatedScenario : s));
-
-            // Auto-save to backend
-            try {
-                await api.patch(`/web-scenarios/${updatedScenario.id}`, {
-                    name: updatedScenario.name,
-                    steps: updatedScenario.steps
-                });
-            } catch (saveErr) {
-                console.error('Failed to auto-save script changes', saveErr);
-            }
+            updateLocalScenario(updatedScenario.id, { steps: parsed });
+            // Immediate save for script changes
+            await saveScenario(updatedScenario.id);
 
             setIsScriptModalOpen(false);
         } catch (err) {
@@ -354,7 +311,7 @@ const WebScenarios: React.FC = () => {
         }
     };
 
-    if (loading) return (
+    if (isLoading) return (
         <div className="flex flex-col items-center justify-center h-full">
             <Loader2 className="animate-spin text-accent mb-4" size={32} />
             <p className="text-[10px] font-mono text-secondary-text uppercase tracking-widest">Hydrating Core Modules...</p>
@@ -409,7 +366,7 @@ const WebScenarios: React.FC = () => {
                         {scenarios.map(s => (
                             <div
                                 key={s.id}
-                                onClick={() => setSelectedScenario(s)}
+                                onClick={() => selectScenario(s)}
                                 className={`w-full text-left p-2 border-sharp transition-all flex items-center gap-2 group cursor-pointer
                                     ${selectedScenario?.id === s.id ? 'bg-accent/10 border-accent/30 text-accent' : 'text-secondary-text hover:bg-surface hover:text-primary-text'}`}
                             >
@@ -444,9 +401,12 @@ const WebScenarios: React.FC = () => {
                                     <input
                                         type="text"
                                         value={selectedScenario.name}
-                                        onChange={(e) => setSelectedScenario({ ...selectedScenario, name: e.target.value })}
+                                        onChange={(e) => updateLocalScenario(selectedScenario.id, { name: e.target.value })}
                                         className="bg-transparent border-none text-xs font-mono font-bold text-primary-text focus:outline-none focus:ring-1 focus:ring-accent/30 px-2 flex-1"
                                     />
+                                    {syncStatus === 'saving' && <Loader2 size={10} className="animate-spin text-accent ml-2" />}
+                                    {syncStatus === 'saved' && <CheckCircle2 size={10} className="text-emerald-500 ml-2" />}
+                                    {syncStatus === 'error' && <XCircle size={10} className="text-rose-500 ml-2" />}
                                 </div>
                                 <div className="flex gap-2 h-full items-center">
                                     <div className="flex items-center gap-2 mr-2">
@@ -464,12 +424,12 @@ const WebScenarios: React.FC = () => {
                                     </div>
                                     <Button
                                         onClick={handleSave}
-                                        disabled={saving}
+                                        disabled={syncStatus === 'saving'}
                                         variant="secondary"
                                         className="px-4 text-[10px] uppercase tracking-widest h-full"
                                     >
                                         <Save size={14} className="mr-2" />
-                                        SAVE
+                                        {syncStatus === 'saving' ? 'SAVING' : 'SAVE'}
                                     </Button>
                                     <Button
                                         onClick={handleExecute}
