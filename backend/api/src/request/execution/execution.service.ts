@@ -75,6 +75,7 @@ export class ExecutionService {
           return await this.prisma.requestExecution.create({
             data: {
               requestId: request.id,
+              environmentId: environmentId || null,
               status: error.code === 'ETIMEDOUT' ? 408 : 500,
               duration,
               response: {
@@ -113,6 +114,7 @@ export class ExecutionService {
     const execution = await this.prisma.requestExecution.create({
       data: {
         requestId: request.id,
+        environmentId: environmentId || null,
         status: response.status,
         duration,
         validationResult: validationResult as any,

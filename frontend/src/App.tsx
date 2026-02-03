@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Projects from './pages/Projects';
 import Requests from './pages/Requests';
 import Comparison from './pages/Comparison';
+import Dashboard from './pages/Dashboard';
 import Layout from './components/Layout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -19,6 +20,14 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/projects"
         element={
@@ -35,11 +44,24 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      {/* Redirect root to projects or login */}
-      <Route path="/" element={<Navigate to="/projects" replace />} />
-      {/* Fallback for requests/comparison placeholder */}
-      <Route path="/requests" element={<Navigate to="/projects" replace />} />
-      <Route path="/comparison" element={<ProtectedRoute><Comparison /></ProtectedRoute>} />
+      <Route
+        path="/requests"
+        element={
+          <ProtectedRoute>
+            <Requests />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/comparison"
+        element={
+          <ProtectedRoute>
+            <Comparison />
+          </ProtectedRoute>
+        }
+      />
+      {/* Redirect root to dashboard or login */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 };

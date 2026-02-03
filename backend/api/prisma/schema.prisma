@@ -28,6 +28,7 @@ model Environment {
   variables Json?
   projectId String
   project   Project  @relation(fields: [projectId], references: [id])
+  executions RequestExecution[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -49,15 +50,17 @@ model Request {
 }
 
 model RequestExecution {
-  id        String   @id @default(uuid())
-  requestId String
-  request   Request  @relation(fields: [requestId], references: [id])
-  response  Json?
-  status    Int
+  id               String       @id @default(uuid())
+  requestId        String
+  request          Request      @relation(fields: [requestId], references: [id])
+  environmentId    String?
+  environment      Environment? @relation(fields: [environmentId], references: [id])
+  response         Json?
+  status           Int
   duration         Int
   validationResult Json?
   testResults      Json?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime     @default(now())
 }
 
 model User {

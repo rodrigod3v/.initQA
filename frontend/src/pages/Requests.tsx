@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Editor from '../components/Editor';
 import {
@@ -30,6 +30,7 @@ interface RequestModel {
     body: any;
     testScript?: string;
     expectedResponseSchema?: any;
+    executions?: ExecutionResult[];
 }
 
 interface ExecutionResult {
@@ -52,6 +53,7 @@ interface ExecutionResult {
 }
 
 const Requests: React.FC = () => {
+    const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
     const [requests, setRequests] = useState<RequestModel[]>([]);
     const [selectedRequest, setSelectedRequest] = useState<RequestModel | null>(null);
@@ -78,7 +80,10 @@ const Requests: React.FC = () => {
     }, [projectId]);
 
     const fetchEnvironments = async () => {
-        if (!projectId) return;
+        if (!projectId) {
+            setEnvironments([]);
+            return;
+        }
         try {
             const response = await api.get(`/projects/${projectId}/environments`);
             setEnvironments(response.data);
@@ -93,9 +98,15 @@ const Requests: React.FC = () => {
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            const response = await api.get(`/requests?projectId=${projectId}`);
+            const url = projectId ? `/requests?projectId=${projectId}` : '/requests';
+            const response = await api.get(url);
             setRequests(response.data);
-            if (response.data.length > 0 && !selectedRequest) {
+
+            // If we have a selected request already, update it with fresh data (including executions)
+            if (selectedRequest) {
+                const updated = response.data.find((r: any) => r.id === selectedRequest.id);
+                if (updated) setSelectedRequest(updated);
+            } else if (response.data.length > 0) {
                 setSelectedRequest(response.data[0]);
             }
         } catch (err) {
@@ -172,6 +183,7 @@ const Requests: React.FC = () => {
                 environmentId: selectedEnvId || undefined
             });
             setLastResult(response.data);
+            fetchRequests(); // Refresh list to get new execution in history
         } catch (err) {
             console.error('Execution failed');
         } finally {
@@ -235,15 +247,32 @@ const Requests: React.FC = () => {
                 <div className="p-3 border-b border-main flex justify-between items-center bg-deep/50">
                     <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
                         <Database size={12} />
-                        DIR_SCAN
+                        {projectId ? 'DIR_SCAN' : 'GLOBAL_REGISTRY'}
                     </span>
-                    <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="text-accent hover:text-white transition-colors"
-                    >
-                        <Plus size={16} />
-                    </button>
+                    {projectId && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="text-accent hover:text-white transition-colors"
+                        >
+                            <Plus size={16} />
+                        </button>
+                    )}
                 </div>
+
+                {!projectId && (
+                    <div className="p-3 bg-accent/5 border-b border-main">
+                        <p className="text-[8px] font-mono text-secondary-text uppercase leading-tight">
+                            Viewing all active protocols. Select a project for full implementation rights.
+                        </p>
+                        <Button
+                            variant="ghost"
+                            onClick={() => navigate('/projects')}
+                            className="w-full mt-2 h-6 text-[8px] uppercase tracking-widest border-accent/20"
+                        >
+                            Switch_to_Project_Context
+                        </Button>
+                    </div>
+                )}
                 <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-1">
                     {requests.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center opacity-30 p-4 text-center">
@@ -351,6 +380,7 @@ const Requests: React.FC = () => {
                                     { id: 'headers', label: 'Headers' },
                                     { id: 'schema', label: 'Contract' },
                                     { id: 'tests', label: 'Tests' },
+                                    { id: 'history', label: 'History' },
                                 ]}
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
@@ -385,6 +415,54 @@ const Requests: React.FC = () => {
                                             height="100%"
                                             language="javascript"
                                         />
+                                    )}
+                                    {activeTab === 'history' && (
+                                        <div className="absolute inset-0 overflow-auto custom-scrollbar p-2 space-y-3">
+                                            {!selectedRequest.executions || selectedRequest.executions.length === 0 ? (
+                                                <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
+                                                    <Clock size={24} className="mb-2" />
+                                                    <p className="text-[10px] font-mono uppercase">Empty_Log_Stream</p>
+                                                </div>
+                                            ) : (
+                                                selectedRequest.executions.map((exec) => (
+                                                    <div key={exec.id} className="space-y-0.5">
+                                                        <button
+                                                            onClick={() => setLastResult(exec)}
+                                                            className={`w-full p-2 border-sharp border bg-surface/30 hover:bg-surface/50 transition-colors flex items-center justify-between
+                                                        ${lastResult?.id === exec.id ? 'border-accent/50 bg-accent/5 text-accent' : 'border-main'}`}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`p-1 border-sharp border ${exec.status < 400 ? 'text-emerald-500 border-emerald-500/20' : 'text-rose-500 border-rose-500/20'}`}>
+                                                                    {exec.status < 400 ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
+                                                                </div>
+                                                                <div className="text-left">
+                                                                    <div className="text-[9px] font-mono font-bold uppercase tracking-tight">Status_{exec.status}</div>
+                                                                    <div className="text-[7px] font-mono text-secondary-text opacity-70">{new Date((exec as any).createdAt).toLocaleString()}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-[8px] font-mono text-secondary-text uppercase">{exec.duration}ms</div>
+                                                        </button>
+
+                                                        {lastResult?.id === exec.id && exec.testResults && (exec.testResults as any[]).length > 0 && (
+                                                            <div className="mx-1 p-2 bg-deep/40 border-x border-b border-accent/20 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                <div className="flex items-center gap-1.5 mb-1 opacity-50">
+                                                                    <Activity size={8} className="text-accent" />
+                                                                    <span className="text-[7px] font-mono text-accent uppercase tracking-widest">Execution_Summary</span>
+                                                                </div>
+                                                                {(exec.testResults as any[]).map((test, ti) => (
+                                                                    <div key={ti} className="flex justify-between items-center gap-4">
+                                                                        <span className="text-[8px] font-mono text-primary-text truncate uppercase leading-none">{test.name}</span>
+                                                                        <div className={`text-[8px] font-mono font-bold px-1 py-0.5 border-sharp ${test.pass ? 'text-emerald-500 bg-emerald-500/5' : 'text-rose-500 bg-rose-500/5'}`}>
+                                                                            {test.pass ? 'PASSED' : 'FAILED'}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
