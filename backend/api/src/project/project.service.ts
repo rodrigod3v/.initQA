@@ -18,4 +18,34 @@ export class ProjectService {
       },
     });
   }
+
+  async remove(id: string) {
+    // Delete all linked requests and environments first (Prisma might handle this via cascades if configured, but let's be safe if not)
+    await this.prisma.request.deleteMany({ where: { projectId: id } });
+    await this.prisma.environment.deleteMany({ where: { projectId: id } });
+    return this.prisma.project.delete({
+      where: { id },
+    });
+  }
+
+  async getEnvironments(projectId: string) {
+    return this.prisma.environment.findMany({
+      where: { projectId },
+    });
+  }
+
+  async createEnvironment(projectId: string, data: any) {
+    return this.prisma.environment.create({
+      data: {
+        ...data,
+        projectId,
+      },
+    });
+  }
+
+  async removeEnvironment(id: string) {
+    return this.prisma.environment.delete({
+      where: { id },
+    });
+  }
 }

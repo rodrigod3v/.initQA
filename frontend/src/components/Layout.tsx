@@ -7,15 +7,19 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <Sidebar />
 
             <main className="flex-1 flex flex-col min-w-0">
-                <header className="h-12 border-b border-main bg-surface/30 flex items-center px-6 justify-between shrink-0">
+                <header className="h-10 border-b border-main bg-deep flex items-center justify-between px-6 shrink-0 z-50">
                     <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-mono text-secondary-text uppercase tracking-widest">System Status: <span className="text-accent ring-1 ring-accent/30 px-1 ml-1">Online</span></span>
+                        <span className="text-[10px] font-mono text-emerald-500 flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            QA_ENGINE_READY
+                        </span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-mono text-secondary-text uppercase tracking-widest">Init.QA v1.0.0</span>
+                        <span className="text-[10px] font-mono text-secondary-text tracking-[0.2em] font-bold">
+                            INIT.QA <span className="text-accent/50">V1.2.0</span>
+                        </span>
                     </div>
                 </header>
-
                 <div className="flex-1 overflow-auto p-4 lg:p-6 custom-scrollbar">
                     {children}
                 </div>
