@@ -15,33 +15,33 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Tabs } from '../components/ui/Tabs';
 import { Modal } from '../components/ui/Modal';
+import { useLoadTestStore, type LoadTest } from '../stores/loadTestStore';
 
 interface Environment {
     id: string;
     name: string;
 }
 
-interface LoadTest {
-    id: string;
-    name: string;
-    config: {
-        targetUrl: string;
-        vus?: number;
-        duration?: string;
-        thresholdMs?: number;
-        stages?: { duration: string; target: number }[];
-    };
-    projectId: string;
-}
-
 const LoadTests: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
-    const [tests, setTests] = useState<LoadTest[]>([]);
-    const [selectedTest, setSelectedTest] = useState<LoadTest | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [executing, setExecuting] = useState(false);
-    const [lastExecution, setLastExecution] = useState<any>(null);
-    const [history, setHistory] = useState<any[]>([]);
+
+    // Store Hooks
+    const {
+        tests,
+        selectedTest,
+        isLoading: loading,
+        isExecuting: executing,
+        lastResult: lastExecution,
+        history,
+        fetchTests,
+        createTest,
+        updateTest,
+        executeTest,
+        selectTest,
+        setLastExecution
+    } = useLoadTestStore(state => state);
+
+    // Local UI State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newTestName, setNewTestName] = useState('');
     const [saving, setSaving] = useState(false);
@@ -54,7 +54,7 @@ const LoadTests: React.FC = () => {
     useEffect(() => {
         const id = projectId || selectedProjectId;
         if (id) {
-            fetchTests();
+            fetchTests(id);
             fetchEnvironments(id);
         }
         fetchProjects();
@@ -84,56 +84,13 @@ const LoadTests: React.FC = () => {
         }
     };
 
-    const fetchTests = async () => {
-        setLoading(true);
-        try {
-            const currentProjectId = projectId || selectedProjectId;
-            if (!currentProjectId) {
-                setTests([]);
-                setLoading(false);
-                return;
-            }
-            const response = await api.get(`/load-tests?projectId=${currentProjectId}`);
-            setTests(response.data);
-            if (response.data.length > 0 && !selectedTest) {
-                setSelectedTest(response.data[0]);
-            }
-        } catch (err) {
-            console.error('Failed to fetch tests');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchHistory = async (id: string) => {
-        try {
-            const response = await api.get(`/load-tests/${id}/history`);
-            setHistory(response.data);
-        } catch (err) {
-            console.error('Failed to fetch history');
-        }
-    };
-
-    useEffect(() => {
-        if (selectedTest) {
-            fetchHistory(selectedTest.id);
-            setLastExecution(null);
-        }
-    }, [selectedTest]);
-
-    useEffect(() => {
-        if (!projectId && selectedProjectId) {
-            fetchTests();
-        }
-    }, [selectedProjectId, projectId]);
-
     const handleCreateTest = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const targetProjectId = projectId || selectedProjectId;
             if (!targetProjectId) return;
 
-            const response = await api.post('/load-tests', {
+            await createTest({
                 name: newTestName,
                 projectId: targetProjectId,
                 config: {
@@ -146,8 +103,6 @@ const LoadTests: React.FC = () => {
                     thresholdMs: 500
                 }
             });
-            setTests([...tests, response.data]);
-            setSelectedTest(response.data);
             setNewTestName('');
             setIsCreateModalOpen(false);
         } catch (err) {
@@ -159,11 +114,10 @@ const LoadTests: React.FC = () => {
         if (!selectedTest) return;
         setSaving(true);
         try {
-            await api.patch(`/load-tests/${selectedTest.id}`, {
+            await updateTest(selectedTest.id, {
                 name: selectedTest.name,
                 config: selectedTest.config
             });
-            setTests(tests.map(t => t.id === selectedTest.id ? selectedTest : t));
         } catch (err) {
             console.error('Failed to save');
         } finally {
@@ -173,30 +127,20 @@ const LoadTests: React.FC = () => {
 
     const handleExecute = async () => {
         if (!selectedTest) return;
-        setExecuting(true);
-        try {
-            const response = await api.post(`/load-tests/${selectedTest.id}/execute${selectedEnvId ? `?environmentId=${selectedEnvId}` : ''}`);
-            setLastExecution(response.data);
-            fetchHistory(selectedTest.id);
-            setActiveTab('results');
-        } catch (err) {
-            console.error('Execution failed');
-        } finally {
-            setExecuting(false);
-        }
+        await executeTest(selectedTest.id, selectedEnvId || undefined);
+        setActiveTab('results');
     };
 
     const updateConfig = (field: string, value: any) => {
         if (!selectedTest) return;
-        setSelectedTest({
-            ...selectedTest,
+        updateTest(selectedTest.id, {
             config: { ...selectedTest.config, [field]: value }
         });
     };
 
     const updateStage = (idx: number, field: string, value: any) => {
-        if (!selectedTest) return;
-        const newStages = [...(selectedTest.config.stages || [])];
+        if (!selectedTest || !selectedTest.config.stages) return;
+        const newStages = [...selectedTest.config.stages];
         newStages[idx] = { ...newStages[idx], [field]: value };
         updateConfig('stages', newStages);
     };
@@ -240,7 +184,7 @@ const LoadTests: React.FC = () => {
                     {tests.map(t => (
                         <button
                             key={t.id}
-                            onClick={() => setSelectedTest(t)}
+                            onClick={() => selectTest(t)}
                             className={`w-full text-left p-2 border-sharp transition-all flex items-center gap-2
                                 ${selectedTest?.id === t.id ? 'bg-accent/10 border-accent/30 text-accent' : 'text-secondary-text hover:bg-surface hover:text-primary-text'}`}
                         >
@@ -261,7 +205,7 @@ const LoadTests: React.FC = () => {
                                 <input
                                     type="text"
                                     value={selectedTest.name}
-                                    onChange={(e) => setSelectedTest({ ...selectedTest, name: e.target.value })}
+                                    onChange={(e) => updateTest(selectedTest.id, { name: e.target.value })}
                                     className="bg-transparent border-none text-xs font-mono font-bold text-primary-text focus:outline-none focus:ring-1 focus:ring-accent/30 px-2 flex-1"
                                 />
                             </div>

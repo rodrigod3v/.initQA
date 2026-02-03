@@ -25,49 +25,36 @@ import { Tabs } from '../components/ui/Tabs';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 
-interface RequestModel {
-    id: string;
-    name?: string;
-    method: string;
-    url: string;
-    headers: any;
-    body: any;
-    testScript?: string;
-    expectedResponseSchema?: any;
-    executions?: ExecutionResult[];
-}
 
-interface ExecutionResult {
-    id: string;
-    status: number;
-    duration: number;
-    response: {
-        data: any;
-        headers?: any;
-    };
-    validationResult?: {
-        valid: boolean;
-        errors?: any[];
-    };
-    testResults?: {
-        name: string;
-        pass: boolean;
-        error?: string;
-    }[];
-}
+import { useRequestStore, type RequestModel } from '../stores/requestStore';
 
 const Requests: React.FC = () => {
     const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
-    const [requests, setRequests] = useState<RequestModel[]>([]);
-    const [selectedRequest, setSelectedRequest] = useState<RequestModel | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [executing, setExecuting] = useState(false);
-    const [lastResult, setLastResult] = useState<ExecutionResult | null>(null);
+
+    // Store Hooks
+    const {
+        requests,
+        selectedRequest,
+        isLoading: loading,
+        executing,
+        lastResult,
+        syncStatus,
+        history,
+        fetchRequests,
+        selectRequest,
+        addRequest,
+        updateLocalRequest,
+        saveRequest,
+        deleteRequest,
+        executeRequest,
+        // fetchHistory, // Internal to store now
+        clearHistory,
+        viewExecution
+    } = useRequestStore(state => state);
+
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newRequestName, setNewRequestName] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [history, setHistory] = useState<ExecutionResult[]>([]);
     const [copySuccess, setCopySuccess] = useState<string | null>(null);
     const [activeResultTab, setActiveResultTab] = useState('data');
 
@@ -96,24 +83,18 @@ const Requests: React.FC = () => {
     const [activeTab, setActiveTab] = useState('payload');
 
     useEffect(() => {
-        fetchRequests();
-        fetchEnvironments();
+        if (projectId) {
+            fetchRequests(projectId);
+            fetchEnvironments();
+        }
     }, [projectId]);
 
+    // History is managed by store selection now, but we check just in case
     useEffect(() => {
         if (selectedRequest) {
-            fetchHistory(selectedRequest.id);
+            // fetchHistory(selectedRequest.id); 
         }
     }, [selectedRequest]);
-
-    const fetchHistory = async (id: string) => {
-        try {
-            const response = await api.get(`/requests/${id}/history`);
-            setHistory(response.data);
-        } catch (err) {
-            console.error('Failed to fetch history');
-        }
-    };
 
     const fetchEnvironments = async () => {
         if (!projectId) {
@@ -128,27 +109,6 @@ const Requests: React.FC = () => {
             }
         } catch (err) {
             console.error('Failed to fetch environments');
-        }
-    };
-
-    const fetchRequests = async () => {
-        setLoading(true);
-        try {
-            const url = projectId ? `/requests?projectId=${projectId}` : '/requests';
-            const response = await api.get(url);
-            setRequests(response.data);
-
-            // If we have a selected request already, update it with fresh data (including executions)
-            if (selectedRequest) {
-                const updated = response.data.find((r: any) => r.id === selectedRequest.id);
-                if (updated) setSelectedRequest(updated);
-            } else if (response.data.length > 0) {
-                setSelectedRequest(response.data[0]);
-            }
-        } catch (err) {
-            console.error('Failed to fetch requests');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -172,6 +132,8 @@ const Requests: React.FC = () => {
         e.preventDefault();
         try {
             const isUrl = newRequestName.startsWith('http://') || newRequestName.startsWith('https://');
+
+
             const response = await api.post('/requests', {
                 name: isUrl ? new URL(newRequestName).pathname.slice(1) || newRequestName : newRequestName,
                 projectId,
@@ -180,8 +142,8 @@ const Requests: React.FC = () => {
                 headers: {},
                 body: {}
             });
-            setRequests([...requests, response.data]);
-            setSelectedRequest(response.data);
+            addRequest(response.data);
+            selectRequest(response.data);
             setNewRequestName('');
             setIsCreateModalOpen(false);
         } catch (err) {
@@ -191,41 +153,7 @@ const Requests: React.FC = () => {
 
     const handleExecute = async () => {
         if (!selectedRequest) return;
-
-        // Auto-save before execute
-        setSaving(true);
-        try {
-            // Destructure to remove immutable fields
-            const { id, projectId: pId, createdAt, updatedAt, executions, ...data } = selectedRequest as any;
-
-            try { if (typeof data.body === 'string') data.body = JSON.parse(data.body); } catch (e) { }
-            try { if (typeof data.headers === 'string') data.headers = JSON.parse(data.headers); } catch (e) { }
-            try { if (typeof data.expectedResponseSchema === 'string') data.expectedResponseSchema = JSON.parse(data.expectedResponseSchema); } catch (e) { }
-
-            await api.patch(`/requests/${selectedRequest.id}`, data);
-            setRequests(requests.map(r => r.id === selectedRequest.id ? selectedRequest : r));
-        } catch (err) {
-            console.error('Auto-save failed before execution', err);
-            setSaving(false);
-            return; // STOP execution if save fails
-        } finally {
-            setSaving(false);
-        }
-
-        setExecuting(true);
-        setLastResult(null);
-        try {
-            const response = await api.post(`/requests/${selectedRequest.id}/execute`, {
-                environmentId: selectedEnvId || undefined
-            });
-            setLastResult(response.data);
-            fetchRequests();
-            fetchHistory(selectedRequest.id);
-        } catch (err) {
-            console.error('Execution failed');
-        } finally {
-            setExecuting(false);
-        }
+        await executeRequest(selectedRequest.id, selectedEnvId || undefined);
     };
 
     const handleCopy = (text: any, type: string) => {
@@ -236,32 +164,18 @@ const Requests: React.FC = () => {
     };
 
     const handleLoadHistory = (execution: any) => {
-        setLastResult(execution);
+        viewExecution(execution);
         setActiveResultTab('data');
     };
 
     const updateRequestField = (field: keyof RequestModel, value: any) => {
         if (!selectedRequest) return;
-        setSelectedRequest({ ...selectedRequest, [field]: value });
+        updateLocalRequest(selectedRequest.id, { [field]: value });
     };
 
     const handleSave = async () => {
         if (!selectedRequest) return;
-        setSaving(true);
-        try {
-            const { id, projectId: pId, createdAt, updatedAt, executions, ...data } = selectedRequest as any;
-
-            try { if (typeof data.body === 'string') data.body = JSON.parse(data.body); } catch (e) { }
-            try { if (typeof data.headers === 'string') data.headers = JSON.parse(data.headers); } catch (e) { }
-            try { if (typeof data.expectedResponseSchema === 'string') data.expectedResponseSchema = JSON.parse(data.expectedResponseSchema); } catch (e) { }
-
-            await api.patch(`/requests/${selectedRequest.id}`, data);
-            setRequests(requests.map(r => r.id === selectedRequest.id ? selectedRequest : r));
-        } catch (err) {
-            console.error('Failed to save');
-        } finally {
-            setSaving(false);
-        }
+        await saveRequest(selectedRequest.id);
     };
 
     const handleDelete = async () => {
@@ -272,14 +186,7 @@ const Requests: React.FC = () => {
             message: `Permanently delete request "${selectedRequest.name}"? This action cannot be undone.`,
             confirmText: 'DELETE_REQUEST',
             onConfirm: async () => {
-                try {
-                    await api.delete(`/requests/${selectedRequest.id}`);
-                    const updatedList = requests.filter(r => r.id !== selectedRequest.id);
-                    setRequests(updatedList);
-                    setSelectedRequest(updatedList.length > 0 ? updatedList[0] : null);
-                } catch (err) {
-                    console.error('Failed to delete');
-                }
+                await deleteRequest(selectedRequest.id);
             }
         });
     };
@@ -292,12 +199,7 @@ const Requests: React.FC = () => {
             message: `Purge all execution history for "${selectedRequest.name}"? This process is irreversible.`,
             confirmText: 'CLEAR_HISTORY',
             onConfirm: async () => {
-                try {
-                    await api.delete(`/requests/${selectedRequest.id}/history`);
-                    setHistory([]);
-                } catch (err) {
-                    console.error('Failed to clear history');
-                }
+                await clearHistory(selectedRequest.id);
             }
         });
     };
@@ -382,8 +284,7 @@ const Requests: React.FC = () => {
                             <button
                                 key={req.id}
                                 onClick={() => {
-                                    setSelectedRequest(req);
-                                    setLastResult(null);
+                                    selectRequest(req);
                                 }}
                                 className={`w-full text-left p-2 border-sharp transition-all group flex items-center gap-2
                                     ${selectedRequest?.id === req.id
@@ -483,12 +384,12 @@ const Requests: React.FC = () => {
                                 <Button
                                     variant="secondary"
                                     onClick={handleSave}
-                                    disabled={saving}
+                                    disabled={syncStatus === 'saving'}
                                     className="px-3 text-[10px] uppercase tracking-widest gap-2 bg-deep/50 hover:bg-surface border-main"
                                     title="Save Changes"
                                 >
-                                    <Save size={14} className={saving ? 'animate-pulse text-accent' : ''} />
-                                    <span>SAVE</span>
+                                    <Save size={14} className={syncStatus === 'saving' ? 'animate-pulse text-accent' : ''} />
+                                    <span>{syncStatus === 'saving' ? 'SAVING' : syncStatus === 'saved' ? 'SAVED' : 'SAVE'}</span>
                                 </Button>
 
                                 <Button
@@ -569,7 +470,7 @@ const Requests: React.FC = () => {
                                                 selectedRequest.executions.map((exec) => (
                                                     <div key={exec.id} className="space-y-0.5">
                                                         <button
-                                                            onClick={() => setLastResult(exec)}
+                                                            onClick={() => viewExecution(exec)}
                                                             className={`w-full p-2 border-sharp border bg-surface/30 hover:bg-surface/50 transition-colors flex items-center justify-between
                                                         ${lastResult?.id === exec.id ? 'border-accent/50 bg-accent/5 text-accent' : 'border-main'}`}
                                                         >
