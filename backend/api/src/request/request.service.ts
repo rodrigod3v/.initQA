@@ -45,7 +45,21 @@ export class RequestService {
 
   async remove(id: string) {
     return this.prisma.request.delete({
-      where: { id },
+      where: { id: id },
+    });
+  }
+
+  async getHistory(id: string) {
+    return this.prisma.requestExecution.findMany({
+      where: { requestId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+  }
+
+  async clearHistory(id: string) {
+    return this.prisma.requestExecution.deleteMany({
+      where: { requestId: id },
     });
   }
 }

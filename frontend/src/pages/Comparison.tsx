@@ -113,45 +113,47 @@ const Comparison: React.FC = () => {
     return (
         <div className="flex flex-col h-[calc(100vh-80px)] gap-4 overflow-hidden">
             {/* Control Bar - Industrial Selector */}
-            <Card className="p-3 border-main bg-surface/30">
-                <div className="flex items-center gap-4">
+            <Card className="p-2 border-main bg-surface/30">
+                <div className="flex items-stretch gap-4 h-10">
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                            <Activity size={12} />
-                            TARGET_PROC
+                            <Activity size={14} />
+                            SELECT_TEST
                         </span>
                         <select
                             value={selectedRequestId}
                             onChange={(e) => setSelectedRequestId(e.target.value)}
-                            className="bg-deep border-sharp border-main px-4 py-1.5 font-mono text-xs text-primary-text focus:outline-none focus:border-accent/50"
+                            className="bg-deep border-sharp border-main px-4 font-mono text-xs text-primary-text focus:outline-none focus:border-accent/50 h-full"
                         >
                             {requests.map(r => <option key={r.id} value={r.id}>{r.name.toUpperCase()}</option>)}
                         </select>
                     </div>
 
-                    <div className="h-6 w-[1px] bg-main mx-2" />
+                    <div className="h-full w-[1px] bg-main/30" />
 
-                    <div className="flex items-center gap-4 flex-1">
+                    <div className="flex items-stretch gap-4 flex-1">
                         <div className="flex items-center gap-2 flex-1">
-                            <span className="text-[9px] font-mono text-secondary-text uppercase">NODE_A</span>
+                            <span className="text-[9px] font-mono text-secondary-text uppercase">SOURCE_ENV</span>
                             <select
                                 value={leftEnvId}
                                 onChange={(e) => setLeftEnvId(e.target.value)}
-                                className="flex-1 bg-deep border-sharp border-main px-4 py-1.5 font-mono text-xs text-secondary-text focus:outline-none focus:border-accent/50"
+                                className="flex-1 bg-deep border-sharp border-main px-4 font-mono text-xs text-secondary-text focus:outline-none focus:border-accent/50 h-full"
                             >
-                                <option value="">SELECT_ENV</option>
+                                <option value="">SELECT_ENVIRONMENT</option>
                                 {environments.map(e => <option key={e.id} value={e.id}>{e.name.toUpperCase()}</option>)}
                             </select>
                         </div>
-                        <GitCompare size={16} className="text-accent opacity-50" />
+                        <div className="flex items-center">
+                            <GitCompare size={16} className="text-accent opacity-50" />
+                        </div>
                         <div className="flex items-center gap-2 flex-1">
-                            <span className="text-[9px] font-mono text-secondary-text uppercase">NODE_B</span>
+                            <span className="text-[9px] font-mono text-secondary-text uppercase">TARGET_ENV</span>
                             <select
                                 value={rightEnvId}
                                 onChange={(e) => setRightEnvId(e.target.value)}
-                                className="flex-1 bg-deep border-sharp border-main px-4 py-1.5 font-mono text-xs text-secondary-text focus:outline-none focus:border-accent/50"
+                                className="flex-1 bg-deep border-sharp border-main px-4 font-mono text-xs text-secondary-text focus:outline-none focus:border-accent/50 h-full"
                             >
-                                <option value="">SELECT_ENV</option>
+                                <option value="">SELECT_ENVIRONMENT</option>
                                 {environments.map(e => <option key={e.id} value={e.id}>{e.name.toUpperCase()}</option>)}
                             </select>
                         </div>
@@ -161,10 +163,11 @@ const Comparison: React.FC = () => {
                         onClick={handleCompare}
                         disabled={comparing || !selectedRequestId || !leftEnvId || !rightEnvId}
                         glow
-                        className="px-8 text-xs uppercase tracking-widest"
+                        className="px-8 text-[10px] uppercase tracking-widest h-full"
+                        title="Compare Responses Between Environments"
                     >
                         {comparing ? <Loader2 className="animate-spin mr-2" size={14} /> : <GitCompare className="mr-2" size={14} />}
-                        Execute_Scan
+                        RUN_COMPARISON
                     </Button>
                 </div>
             </Card>
@@ -173,8 +176,8 @@ const Comparison: React.FC = () => {
             <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
                 {/* Result A */}
                 <div className="flex flex-col border-sharp border-main bg-surface/20 overflow-hidden">
-                    <div className="px-4 py-2 bg-deep border-b border-main flex justify-between items-center">
-                        <span className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest">DATA_FEED_A</span>
+                    <div className="h-10 bg-deep border-b border-main flex justify-between items-center px-4 shrink-0">
+                        <span className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest">RESULT_SOURCE</span>
                         {result && (
                             <div className="flex items-center gap-3">
                                 <span className={`text-[9px] font-mono ${result.left.status < 400 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -196,8 +199,8 @@ const Comparison: React.FC = () => {
 
                 {/* Result B */}
                 <div className="flex flex-col border-sharp border-main bg-surface/20 overflow-hidden">
-                    <div className="px-4 py-2 bg-deep border-b border-main flex justify-between items-center">
-                        <span className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest">DATA_FEED_B</span>
+                    <div className="h-10 bg-deep border-b border-main flex justify-between items-center px-4 shrink-0">
+                        <span className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest">RESULT_TARGET</span>
                         {result && (
                             <div className="flex items-center gap-3">
                                 <span className={`text-[9px] font-mono ${result.right.status < 400 ? 'text-emerald-500' : 'text-rose-500'}`}>

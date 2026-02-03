@@ -47,7 +47,7 @@ const Login: React.FC = () => {
                         </h1>
                     </div>
                     <p className="text-xs font-mono text-secondary-text uppercase tracking-widest">
-                        Secure Access Terminal // Restricted Area
+                        Professional API Testing Platform
                     </p>
                 </div>
 
@@ -55,7 +55,7 @@ const Login: React.FC = () => {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="flex items-center gap-2 text-[10px] font-mono text-accent/70 uppercase mb-4 border-b border-main pb-2">
                             <ShieldCheck size={12} />
-                            Identity Verification Required
+                            Authentication Required
                         </div>
 
                         {error && (
@@ -66,9 +66,9 @@ const Login: React.FC = () => {
                         )}
 
                         <Input
-                            label="Operator ID (Email)"
+                            label="Email Address"
                             type="email"
-                            placeholder="OPERATOR@CORE.SYSTEM"
+                            placeholder="user@organization.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
@@ -76,7 +76,7 @@ const Login: React.FC = () => {
                         />
 
                         <Input
-                            label="Access Protocol (Password)"
+                            label="Password"
                             type="password"
                             placeholder="••••••••"
                             value={password}
@@ -91,19 +91,19 @@ const Login: React.FC = () => {
                             glow
                             disabled={isLoading}
                         >
-                            {isLoading ? 'Decrypting...' : 'Initialize Session'}
+                            {isLoading ? 'Authenticating...' : 'Sign In'}
                         </Button>
 
                         <div className="pt-4 border-t border-main">
                             <p className="text-[10px] font-mono text-secondary-text text-center italic">
-                                Warning: Unauthorized access is strictly logged and monitored.
+                                Enterprise access managed by organization protocol.
                             </p>
                         </div>
                     </form>
                 </Card>
 
                 <p className="text-center mt-8 text-secondary-text font-mono text-[10px] uppercase tracking-widest">
-                    Default Credentials: admin@initqa.com / admin123
+                    Demo Credentials: admin@initqa.com / admin123
                 </p>
             </div>
         </div>
