@@ -467,7 +467,6 @@ const Requests: React.FC = () => {
                                         { id: 'headers', label: 'Headers' },
                                         { id: 'contract', label: 'Schema' },
                                         { id: 'tests', label: 'Assertions' },
-                                        { id: 'history', label: 'History' },
                                     ]}
                                     activeTab={activeTab}
                                     onTabChange={setActiveTab}
@@ -512,54 +511,6 @@ const Requests: React.FC = () => {
                                                 height="100%"
                                                 language="javascript"
                                             />
-                                        )}
-                                        {activeTab === 'history' && (
-                                            <div className="absolute inset-0 overflow-auto custom-scrollbar p-2 space-y-3 bg-deep">
-                                                {!selectedRequest.executions || selectedRequest.executions.length === 0 ? (
-                                                    <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
-                                                        <Clock size={24} className="mb-2" />
-                                                        <p className="text-[10px] font-mono uppercase">Empty_Log_Stream</p>
-                                                    </div>
-                                                ) : (
-                                                    selectedRequest.executions.map((exec) => (
-                                                        <div key={exec.id} className="space-y-0.5">
-                                                            <button
-                                                                onClick={() => viewExecution(exec)}
-                                                                className={`w-full p-2 border-sharp border bg-surface/30 hover:bg-surface/50 transition-colors flex items-center justify-between
-                                                        ${lastResult?.id === exec.id ? 'border-accent/50 bg-accent/5 text-accent' : 'border-main'}`}
-                                                            >
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`p-1 border-sharp border ${exec.status < 400 ? 'text-emerald-500 border-emerald-500/20' : 'text-rose-500 border-rose-500/20'}`}>
-                                                                        {exec.status < 400 ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
-                                                                    </div>
-                                                                    <div className="text-left">
-                                                                        <div className="text-[9px] font-mono font-bold uppercase tracking-tight">Status_{exec.status}</div>
-                                                                        <div className="text-[7px] font-mono text-secondary-text opacity-70">{new Date((exec as any).createdAt).toLocaleString()}</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="text-[8px] font-mono text-secondary-text uppercase">{exec.duration}ms</div>
-                                                            </button>
-
-                                                            {lastResult?.id === exec.id && exec.testResults && (exec.testResults as any[]).length > 0 && (
-                                                                <div className="mx-1 p-2 bg-deep/40 border-x border-b border-accent/20 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                    <div className="flex items-center gap-1.5 mb-1 opacity-50">
-                                                                        <Activity size={8} className="text-accent" />
-                                                                        <span className="text-[7px] font-mono text-accent uppercase tracking-widest">Execution_Summary</span>
-                                                                    </div>
-                                                                    {(exec.testResults as any[]).map((test, ti) => (
-                                                                        <div key={ti} className="flex justify-between items-center gap-4">
-                                                                            <span className="text-[8px] font-mono text-primary-text truncate uppercase leading-none">{test.name}</span>
-                                                                            <div className={`text-[8px] font-mono font-bold px-1 py-0.5 border-sharp ${test.pass ? 'text-emerald-500 bg-emerald-500/5' : 'text-rose-500 bg-rose-500/5'}`}>
-                                                                                {test.pass ? 'PASSED' : 'FAILED'}
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
                                         )}
                                     </div>
                                 </div>

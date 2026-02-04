@@ -22,6 +22,8 @@ dist-ssr/
 # Databases (SQLite & Prisma)
 *.db
 *.db-journal
+*.sqlite
+*.sqlite-journal
 dev.db
 dev.db-journal
 **/prisma/*.db
@@ -33,17 +35,29 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
 
 # OS & IDEs
 .DS_Store
 Thumbs.db
 .vscode/
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 *.swp
 *.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 .project
 .settings/
+.classpath
+.c9/
+*.launch
+*.sublime-workspace
 
 # Testing
 coverage/
@@ -51,33 +65,17 @@ coverage/
 .nyc_output/
 cypress/screenshots/
 cypress/videos/
-
-# Misc
-.tmp/
-tmp/
-pids/
-*.pid
-*.seed
-*.pid.lock
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-*.sqlite
-*.sqlite-journal
-
-# Editor Directories and Files
-.idea
-.vscode
-*.suo
-*.ntvs
-*.njsproj
-*.sln
-*.sw?
-
-# Testing artifacts
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
 
 # Misc
-.DS_Store
-Thumbs.db
+.tmp/
+tmp/
+.temp/
+pids/
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
