@@ -62,4 +62,34 @@ export class RequestService {
       where: { requestId: id },
     });
   }
+
+  async getProjectHistory(projectId: string) {
+    return this.prisma.requestExecution.findMany({
+      where: {
+        request: {
+          projectId,
+        },
+      },
+      include: {
+        request: {
+          select: {
+            name: true,
+            method: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  async clearProjectHistory(projectId: string) {
+    return this.prisma.requestExecution.deleteMany({
+      where: {
+        request: {
+          projectId,
+        },
+      },
+    });
+  }
 }

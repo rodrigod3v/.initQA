@@ -1,11 +1,12 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Send, GitCompare, LogOut, Terminal, Layers, Monitor, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const navGroups = [
         {
@@ -58,26 +59,42 @@ export const Sidebar: React.FC = () => {
                                 {group.title}
                             </div>
                         )}
-                        {group.items.map((item) => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                className={({ isActive }: { isActive: boolean }) => `
+                        {group.items.map((item) => {
+                            // Custom active logic for project-scoped routes
+                            const isItemActive = () => {
+                                const path = location.pathname;
+
+                                // Exact match for non-project routes
+                                if (item.path === path) return true;
+
+                                // Handle project-scoped routes
+                                if (item.path === '/requests' && path.includes('/projects/') && path.includes('/requests')) return true;
+                                if (item.path === '/automation' && path.includes('/projects/') && path.includes('/web')) return true;
+                                if (item.path === '/performance' && path.includes('/projects/') && path.includes('/load')) return true;
+                                if (item.path === '/projects' && path.match(/^\/projects\/[^\/]+$/)) return true; // /projects/:id only
+
+                                return false;
+                            };
+
+                            const isActive = isItemActive();
+
+                            return (
+                                <NavLink
+                                    key={item.path}
+                                    to={item.path}
+                                    className={`
                   flex items-center gap-3 px-4 py-2 transition-colors relative
                   ${isActive
-                                        ? 'text-accent'
-                                        : 'text-secondary-text hover:text-primary-text hover:bg-surface/50'}
+                                            ? 'text-accent'
+                                            : 'text-secondary-text hover:text-primary-text hover:bg-surface/50'}
                 `}
-                            >
-                                {({ isActive }: { isActive: boolean }) => (
-                                    <>
-                                        <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r transition-all ${isActive ? 'opacity-100' : 'opacity-0'}`} />
-                                        <item.icon size={18} className="shrink-0" />
-                                        <span className="hidden lg:block text-xs font-mono tracking-wide">{item.label}</span>
-                                    </>
-                                )}
-                            </NavLink>
-                        ))}
+                                >
+                                    <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r transition-all ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+                                    <item.icon size={18} className="shrink-0" />
+                                    <span className="hidden lg:block text-xs font-mono tracking-wide">{item.label}</span>
+                                </NavLink>
+                            );
+                        })}
                     </div>
                 ))}
             </nav>

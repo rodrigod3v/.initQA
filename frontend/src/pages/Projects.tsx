@@ -108,7 +108,7 @@ const Projects: React.FC = () => {
                     {projects.map((project) => (
                         <Link
                             key={project.id}
-                            to={`/projects/${project.id}/requests`}
+                            to={`/projects/${project.id}`}
                             className="group"
                         >
                             <Card className="p-0 border-main hover:border-accent/50 transition-all relative h-full group/card overflow-visible">

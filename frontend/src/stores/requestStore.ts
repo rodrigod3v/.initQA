@@ -46,13 +46,17 @@ interface RequestState {
     syncStatus: SyncStatus;
     lastError: string | null;
     executing: boolean;
+    batchExecuting: boolean;
+    runningRequests: Set<string>;
     lastResult: ExecutionResult | null;
     history: ExecutionResult[];
+    projectHistory: ExecutionResult[];
 
     // Actions
     fetchRequests: (projectId: string) => Promise<void>;
     selectRequest: (request: RequestModel | null) => void;
     fetchHistory: (requestId: string) => Promise<void>;
+    fetchProjectHistory: (projectId: string) => Promise<void>;
     
     // CRUD & Sync
     addRequest: (request: RequestModel) => void;
@@ -62,8 +66,10 @@ interface RequestState {
     
     // Execution
     executeRequest: (id: string, envId?: string) => Promise<void>;
+    batchExecute: (projectId: string, envId?: string) => Promise<void>;
     viewExecution: (execution: ExecutionResult) => void;
     clearHistory: (requestId: string) => Promise<void>;
+    clearProjectHistory: (projectId: string) => Promise<void>;
     
     // Helpers
     setSyncStatus: (status: SyncStatus) => void;
@@ -79,8 +85,11 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     syncStatus: 'idle',
     lastError: null,
     executing: false,
+    batchExecuting: false,
+    runningRequests: new Set(),
     lastResult: null,
     history: [],
+    projectHistory: [],
 
     fetchRequests: async (projectId: string) => {
         set({ isLoading: true });
@@ -126,6 +135,15 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             set({ history: response.data });
         } catch (err) {
             console.error('Failed to fetch history');
+        }
+    },
+
+    fetchProjectHistory: async (projectId: string) => {
+        try {
+            const response = await api.get(`/requests/project-history/${projectId}`);
+            set({ projectHistory: response.data });
+        } catch (err) {
+            console.error('Failed to fetch project history');
         }
     },
 
@@ -219,13 +237,79 @@ export const useRequestStore = create<RequestState>((set, get) => ({
                 environmentId: envId
             });
             set({ lastResult: response.data });
+            
+            // Refresh Both local and project-wide histories
             await get().fetchHistory(id);
-            // Refresh request list to update executions count if needed
-            // await get().fetchRequests(get().selectedRequest?.projectId || ''); 
+            const projectId = get().requests.find(r => r.id === id)?.projectId;
+            if (projectId) {
+                await get().fetchProjectHistory(projectId);
+            }
         } catch (err) {
             set({ lastError: 'Execution failed' });
         } finally {
             set({ executing: false });
+        }
+    },
+
+    batchExecute: async (projectId, envId) => {
+        const requests = get().requests;
+        const pId = projectId || get().selectedRequest?.projectId;
+        if (requests.length === 0 || !pId) {
+            console.warn('Batch execution skipped: No requests or project ID');
+            return;
+        }
+
+        set({ 
+            batchExecuting: true, 
+            runningRequests: new Set(requests.map(r => r.id)), 
+            lastError: null 
+        });
+
+        try {
+            console.log(`[STORE] Starting batch execution for project ${pId}...`);
+            
+            // Sequential execution for SQLite reliability
+            for (const req of requests) {
+                try {
+                    // Auto-save before execution
+                    await get().saveRequest(req.id);
+                    
+                    // Stability delay
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const response = await api.post(`/requests/${req.id}/execute`, { environmentId: envId });
+                    console.log(`[STORE] Executed ${req.name}: Status ${response.status}`);
+                    
+                    // Update running state
+                    set(state => {
+                        const newRunning = new Set(state.runningRequests);
+                        newRunning.delete(req.id);
+                        return { runningRequests: newRunning };
+                    });
+
+                    // Refresh both histories to keep UI in sync
+                    await get().fetchProjectHistory(pId);
+                    if (get().selectedRequest?.id === req.id) {
+                        await get().fetchHistory(req.id);
+                    }
+                } catch (e: any) {
+                    console.error(`[STORE] Failed to run request ${req.name}:`, e.message);
+                    set(state => {
+                        const newRunning = new Set(state.runningRequests);
+                        newRunning.delete(req.id);
+                        return { runningRequests: newRunning };
+                    });
+                }
+            }
+
+            console.log('[STORE] Batch execution complete.');
+        } catch (err: any) {
+            console.error('[STORE] Batch execution CRITICAL failure:', err);
+            set({ lastError: 'Batch execution failed: ' + err.message });
+        } finally {
+            set({ batchExecuting: false, runningRequests: new Set() });
+            // Final refresh to be sure
+            await get().fetchProjectHistory(pId);
         }
     },
 
@@ -239,6 +323,15 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             set({ history: [] });
         } catch (err) {
             console.error('Failed to clear history');
+        }
+    },
+
+    clearProjectHistory: async (projectId: string) => {
+        try {
+            await api.delete(`/requests/project-history/${projectId}`);
+            set({ projectHistory: [] });
+        } catch (err) {
+            console.error('Failed to clear project history');
         }
     },
 

@@ -73,6 +73,11 @@ export class RequestController {
     return this.requestService.getHistory(id);
   }
 
+  @Get('project-history/:projectId')
+  getProjectHistory(@Param('projectId') projectId: string) {
+    return this.requestService.getProjectHistory(projectId);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() data: any) {
     return this.requestService.update(id, data);
@@ -86,5 +91,10 @@ export class RequestController {
   @Delete(':id/history')
   clearHistory(@Param('id') id: string) {
     return this.requestService.clearHistory(id);
+  }
+
+  @Delete('project-history/:projectId')
+  clearProjectHistory(@Param('projectId') projectId: string) {
+    return this.requestService.clearProjectHistory(projectId);
   }
 }
