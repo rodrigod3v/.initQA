@@ -190,7 +190,7 @@ const Projects: React.FC = () => {
                 onClose={() => setIsConfirmOpen(false)}
                 onConfirm={confirmDelete}
                 title="DELETE_PROJECT_CONFIRMATION"
-                message={`Permanently delete project "${projectToDelete?.name}" and all its associated data (environments, requests, history)? This action cannot be undone.`}
+                message={`Permanently delete project "${projectToDelete?.name}" and all its associated data (environments, requests)? This action cannot be undone.`}
                 confirmText="DELETE_PROJECT"
             />
         </div>

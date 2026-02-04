@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class RequestService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(data: {
     name?: string;
@@ -21,12 +21,6 @@ export class RequestService {
   async findAll(projectId?: string) {
     return this.prisma.request.findMany({
       where: projectId ? { projectId } : {},
-      include: {
-        executions: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-        },
-      },
     });
   }
 
@@ -49,19 +43,6 @@ export class RequestService {
     });
   }
 
-  async getHistory(id: string) {
-    return this.prisma.requestExecution.findMany({
-      where: { requestId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
-  }
-
-  async clearHistory(id: string) {
-    return this.prisma.requestExecution.deleteMany({
-      where: { requestId: id },
-    });
-  }
 
   async getProjectHistory(projectId: string) {
     return this.prisma.requestExecution.findMany({
