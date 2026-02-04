@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Projects from './pages/Projects';
+import ProjectHub from './pages/ProjectHub';
 import Requests from './pages/Requests';
 import Comparison from './pages/Comparison';
 import Dashboard from './pages/Dashboard';
@@ -35,6 +36,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <Projects />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <ProjectHub />
           </ProtectedRoute>
         }
       />

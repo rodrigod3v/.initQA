@@ -13,10 +13,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 
-interface RequestModel {
-    id: string;
-    name: string;
-}
+import { useRequestStore } from '../stores/requestStore';
 
 interface Environment {
     id: string;
@@ -32,7 +29,10 @@ interface ComparisonResult {
 const Comparison: React.FC = () => {
     const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
-    const [requests, setRequests] = useState<RequestModel[]>([]);
+
+    // Store Hooks
+    const { requests, fetchRequests } = useRequestStore(state => state);
+
     const [environments, setEnvironments] = useState<Environment[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string>('');
     const [leftEnvId, setLeftEnvId] = useState<string>('');
@@ -42,30 +42,38 @@ const Comparison: React.FC = () => {
     const [comparing, setComparing] = useState(false);
 
     useEffect(() => {
-        fetchData();
+        if (projectId) {
+            // Load requests from store
+            if (requests.length === 0) {
+                fetchRequests(projectId);
+            }
+            fetchEnvironments();
+        }
     }, [projectId]);
 
-    const fetchData = async () => {
+    // Update selected request if none selected and requests load
+    useEffect(() => {
+        if (requests.length > 0 && !selectedRequestId) {
+            setSelectedRequestId(requests[0].id);
+        }
+    }, [requests]);
+
+    const fetchEnvironments = async () => {
         if (!projectId) {
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            const [reqsRes, envsRes] = await Promise.all([
-                api.get(`/requests?projectId=${projectId}`),
-                api.get(`/projects/${projectId}/environments`)
-            ]);
-            setRequests(reqsRes.data);
-            setEnvironments(envsRes.data);
+            const response = await api.get(`/projects/${projectId}/environments`);
+            setEnvironments(response.data);
 
-            if (reqsRes.data.length > 0) setSelectedRequestId(reqsRes.data[0].id);
-            if (envsRes.data.length > 1) {
-                setLeftEnvId(envsRes.data[0].id);
-                setRightEnvId(envsRes.data[1].id);
+            if (response.data.length > 1) {
+                setLeftEnvId(response.data[0].id);
+                setRightEnvId(response.data[1].id);
             }
         } catch (err) {
-            console.error('Failed to fetch comparison data');
+            console.error('Failed to fetch environments');
         } finally {
             setLoading(false);
         }
@@ -125,7 +133,7 @@ const Comparison: React.FC = () => {
                             onChange={(e) => setSelectedRequestId(e.target.value)}
                             className="bg-deep border-sharp border-main px-4 font-mono text-xs text-primary-text focus:outline-none focus:border-accent/50 h-full"
                         >
-                            {requests.map(r => <option key={r.id} value={r.id}>{r.name.toUpperCase()}</option>)}
+                            {requests.map(r => <option key={r.id} value={r.id}>{(r.name || 'Unnamed').toUpperCase()}</option>)}
                         </select>
                     </div>
 

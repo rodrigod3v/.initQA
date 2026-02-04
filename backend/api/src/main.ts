@@ -15,6 +15,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.enableCors();
   
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 3000, '127.0.0.1');
 }
 bootstrap();

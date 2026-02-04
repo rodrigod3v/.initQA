@@ -19,6 +19,15 @@ export class ProjectService {
     });
   }
 
+  async findOne(id: string) {
+    return this.prisma.project.findUnique({
+      where: { id },
+      include: {
+        environments: true,
+      },
+    });
+  }
+
   async remove(id: string) {
     // Delete all linked requests and environments first (Prisma might handle this via cascades if configured, but let's be safe if not)
     await this.prisma.request.deleteMany({ where: { projectId: id } });

@@ -17,6 +17,11 @@ export class ProjectController {
     return this.projectService.findAll();
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.projectService.findOne(id);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.projectService.remove(id);

@@ -7,7 +7,8 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend/api\"",
+    "dev": "npm run clean:ports && concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend/api\"",
+    "clean:ports": "powershell -Command \"Get-NetTCPConnection -LocalPort 3000, 5173 -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; exit 0\"",
     "start:backend": "npm run start:dev -w backend/api",
     "start:dev": "npm run start:dev -w backend/api",
     "start:frontend": "npm run dev -w frontend",

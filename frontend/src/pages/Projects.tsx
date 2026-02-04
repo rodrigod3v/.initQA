@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api';
+// import api from '../services/api'; // Removed direct api access
+import { useProjectStore } from '../stores/projectStore';
 import { Plus, Folder, ChevronRight, Loader2, Terminal, Calendar, Trash2, Save } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -8,15 +9,12 @@ import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 
-interface Project {
-    id: string;
-    name: string;
-    createdAt: string;
-}
 
 const Projects: React.FC = () => {
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Store Hooks
+    const { projects, isLoading: loading, fetchProjects, createProject, deleteProject } = useProjectStore(state => state);
+
+    // Local UI state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
     const [creating, setCreating] = useState(false);
@@ -29,25 +27,13 @@ const Projects: React.FC = () => {
         fetchProjects();
     }, []);
 
-    const fetchProjects = async () => {
-        try {
-            const response = await api.get('/projects');
-            setProjects(response.data);
-        } catch (err) {
-            console.error('Failed to fetch projects');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newProjectName.trim()) return;
 
         setCreating(true);
         try {
-            const response = await api.post('/projects', { name: newProjectName });
-            setProjects([...projects, response.data]);
+            await createProject(newProjectName);
             setNewProjectName('');
             setIsModalOpen(false);
         } catch (err) {
@@ -60,8 +46,9 @@ const Projects: React.FC = () => {
     const confirmDelete = async () => {
         if (!projectToDelete) return;
         try {
-            await api.delete(`/projects/${projectToDelete.id}`);
-            setProjects(projects.filter(p => p.id !== projectToDelete.id));
+            await deleteProject(projectToDelete.id);
+            setProjectToDelete(null); // Close modal automatically via state cleanup logic if needed, or manual close
+            setIsConfirmOpen(false);
         } catch (err) {
             console.error('Failed to delete project');
         }
@@ -121,7 +108,7 @@ const Projects: React.FC = () => {
                     {projects.map((project) => (
                         <Link
                             key={project.id}
-                            to={`/projects/${project.id}/requests`}
+                            to={`/projects/${project.id}`}
                             className="group"
                         >
                             <Card className="p-0 border-main hover:border-accent/50 transition-all relative h-full group/card overflow-visible">
