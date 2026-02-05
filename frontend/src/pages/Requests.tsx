@@ -36,22 +36,22 @@ const Requests: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
 
     // Store Hooks
-    const {
-        requests,
-        selectedRequest,
-        isLoading: loading,
-        syncStatus,
-        fetchRequests,
-        selectRequest,
-        updateLocalRequest,
-        saveRequest,
-        deleteRequest,
-        batchExecute,
-        batchExecuting,
-        runningRequests,
-        viewExecution,
-        clearProjectHistory
-    } = useRequestStore(state => state);
+    // Store State - Optimized Subscriptions
+    const requests = useRequestStore(state => state.requests);
+    const selectedRequest = useRequestStore(state => state.selectedRequest);
+    const loading = useRequestStore(state => state.isLoading);
+    const syncStatus = useRequestStore(state => state.syncStatus);
+    const runningRequests = useRequestStore(state => state.runningRequests);
+    const batchExecuting = useRequestStore(state => state.batchExecuting);
+
+    const fetchRequests = useRequestStore(state => state.fetchRequests);
+    const selectRequest = useRequestStore(state => state.selectRequest);
+    const updateLocalRequest = useRequestStore(state => state.updateLocalRequest);
+    const saveRequest = useRequestStore(state => state.saveRequest);
+    const deleteRequest = useRequestStore(state => state.deleteRequest);
+    const batchExecute = useRequestStore(state => state.batchExecute);
+    const viewExecution = useRequestStore(state => state.viewExecution);
+    const clearProjectHistory = useRequestStore(state => state.clearProjectHistory);
 
     // Custom Hooks
     const {

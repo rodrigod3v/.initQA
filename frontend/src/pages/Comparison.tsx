@@ -31,7 +31,9 @@ const Comparison: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
 
     // Store Hooks
-    const { requests, fetchRequests } = useRequestStore(state => state);
+    // Store State - Optimized Subscriptions
+    const requests = useRequestStore(state => state.requests);
+    const fetchRequests = useRequestStore(state => state.fetchRequests);
 
     const [environments, setEnvironments] = useState<Environment[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string>('');

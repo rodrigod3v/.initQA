@@ -34,6 +34,7 @@ import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { Tabs } from '@/shared/ui/Tabs';
 
+import { useProjectStore } from '@/stores/projectStore';
 import { useScenarioStore, type WebScenario, type Step } from '@/stores/scenarioStore';
 import { useProjectMetadata } from '@/features/webScenario/hooks/useProjectMetadata';
 import { useWebScenarioHistory } from '@/features/webScenario/hooks/useWebScenarioHistory';
@@ -43,6 +44,9 @@ const WebScenarios: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
 
     // Store Hooks
+    const selectProject = useProjectStore(state => state.selectProject);
+
+    // Store State - Optimized Subscriptions
     const scenarios = useScenarioStore(state => state.scenarios);
     const selectedScenario = useScenarioStore(state => state.selectedScenario);
     const isLoading = useScenarioStore(state => state.isLoading);
@@ -92,8 +96,19 @@ const WebScenarios: React.FC = () => {
     useEffect(() => {
         if (effectiveProjectId) {
             fetchScenarios(effectiveProjectId);
+
+            // Sync selected project in store for Sidebar context
+            const syncProject = async () => {
+                try {
+                    const resp = await api.get(`/projects/${effectiveProjectId}`);
+                    selectProject(resp.data);
+                } catch (err) {
+                    console.error('Failed to sync project store');
+                }
+            };
+            syncProject();
         }
-    }, [effectiveProjectId]);
+    }, [effectiveProjectId, selectProject]);
 
     useEffect(() => {
         if (selectedScenario) {

@@ -34,14 +34,22 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
         if (isOpen) {
             document.addEventListener('keydown', handleEscape);
-            // Focus the cancel button when modal opens (safer default)
-            cancelButtonRef.current?.focus();
         }
 
         return () => {
             document.removeEventListener('keydown', handleEscape);
         };
     }, [isOpen, onClose]);
+
+    // Initial focus when opening
+    useEffect(() => {
+        if (isOpen) {
+            // Focus the cancel button when modal opens (safer default)
+            setTimeout(() => {
+                cancelButtonRef.current?.focus();
+            }, 0);
+        }
+    }, [isOpen]);
 
     // Focus trap
     useEffect(() => {
@@ -74,12 +82,32 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         return () => modal.removeEventListener('keydown', handleTab as EventListener);
     }, [isOpen]);
 
+    const backdropRef = useRef<HTMLDivElement>(null);
+    const mouseDownOnBackdrop = useRef(false);
+
     if (!isOpen) return null;
+
+    const handleBackdropMouseDown = (e: React.MouseEvent) => {
+        if (e.target === backdropRef.current) {
+            mouseDownOnBackdrop.current = true;
+        } else {
+            mouseDownOnBackdrop.current = false;
+        }
+    };
+
+    const handleBackdropMouseUp = (e: React.MouseEvent) => {
+        if (mouseDownOnBackdrop.current && e.target === backdropRef.current) {
+            onClose();
+        }
+        mouseDownOnBackdrop.current = false;
+    };
 
     return (
         <div
+            ref={backdropRef}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-deep/90 backdrop-blur-sm"
-            onClick={onClose}
+            onMouseDown={handleBackdropMouseDown}
+            onMouseUp={handleBackdropMouseUp}
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-modal-title"
@@ -88,7 +116,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <div
                 ref={modalRef}
                 className="bg-surface border-sharp border-danger/30 glow-danger w-full max-w-md overflow-hidden shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
             >
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-main bg-danger/10">
                     <AlertTriangle size={18} className="text-danger" aria-hidden="true" />

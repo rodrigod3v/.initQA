@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run clean:ports && concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend\"",
-    "clean:ports": "lsof -ti :3000,5173 | xargs kill -9 2>/dev/null || true",
+    "clean:ports": "powershell -NoProfile -Command \"$p = Get-NetTCPConnection -LocalPort 3000, 5173 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { $p | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }; exit 0\"",
     "start:backend": "npm run start:dev -w backend",
     "start:dev": "npm run start:dev -w backend",
     "start:frontend": "npm run dev -w frontend",

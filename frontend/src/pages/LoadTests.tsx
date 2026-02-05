@@ -16,6 +16,7 @@ import { Card } from '@/shared/ui/Card';
 import { Tabs } from '@/shared/ui/Tabs';
 import { Modal } from '@/shared/ui/Modal';
 import { useLoadTestStore } from '@/stores/loadTestStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 interface Environment {
     id: string;
@@ -26,20 +27,22 @@ const LoadTests: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
 
     // Store Hooks
-    const {
-        tests,
-        selectedTest,
-        isLoading: loading,
-        isExecuting: executing,
-        lastResult: lastExecution,
-        history,
-        fetchTests,
-        createTest,
-        updateTest,
-        executeTest,
-        selectTest,
-        setLastExecution
-    } = useLoadTestStore(state => state);
+    const selectProject = useProjectStore(state => state.selectProject);
+
+    // Store State - Optimized Subscriptions
+    const tests = useLoadTestStore(state => state.tests);
+    const selectedTest = useLoadTestStore(state => state.selectedTest);
+    const loading = useLoadTestStore(state => state.isLoading);
+    const executing = useLoadTestStore(state => state.isExecuting);
+    const lastExecution = useLoadTestStore(state => state.lastResult);
+    const history = useLoadTestStore(state => state.history);
+
+    const fetchTests = useLoadTestStore(state => state.fetchTests);
+    const createTest = useLoadTestStore(state => state.createTest);
+    const updateTest = useLoadTestStore(state => state.updateTest);
+    const executeTest = useLoadTestStore(state => state.executeTest);
+    const selectTest = useLoadTestStore(state => state.selectTest);
+    const setLastExecution = useLoadTestStore(state => state.setLastExecution);
 
     // Local UI State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -56,9 +59,20 @@ const LoadTests: React.FC = () => {
         if (id) {
             fetchTests(id);
             fetchEnvironments(id);
+
+            // Sync selected project in store for Sidebar context
+            const syncProject = async () => {
+                try {
+                    const resp = await api.get(`/projects/${id}`);
+                    selectProject(resp.data);
+                } catch (err) {
+                    console.error('Failed to sync project store');
+                }
+            };
+            syncProject();
         }
         fetchProjects();
-    }, [projectId, selectedProjectId]);
+    }, [projectId, selectedProjectId, selectProject]);
 
     const fetchProjects = async () => {
         try {

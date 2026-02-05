@@ -27,7 +27,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
     const navigate = useNavigate();
     const location = useLocation();
     const [isCollapsed, setIsCollapsed] = React.useState(false);
-    const { selectedProject } = useProjectStore();
+
+    // Optimized Store Subscriptions
+    const selectedProject = useProjectStore(state => state.selectedProject);
+
+    const pathParts = location.pathname.split('/');
+    const currentProjectId = pathParts.includes('projects') ? pathParts[pathParts.indexOf('projects') + 1] : null;
+
+    // Use URL projectId if available, otherwise fallback to store
+    const activeProjectId = currentProjectId || selectedProject?.id;
 
     // Close mobile sidebar on navigation
     React.useEffect(() => {
@@ -67,6 +75,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const getDynamicPath = (item: NavItem) => {
+        if (!activeProjectId) return item.path;
+        if (item.path === '/requests') return `/projects/${activeProjectId}/requests`;
+        if (item.path === '/automation') return `/projects/${activeProjectId}/web`;
+        if (item.path === '/performance') return `/projects/${activeProjectId}/load`;
+        // Comparator might not be strictly project-scoped in terms of URL, but let's keep it simple
+        return item.path;
     };
 
     return (
@@ -131,21 +148,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
                                 );
                             }
 
-                            const pathParts = location.pathname.split('/');
-                            const currentProjectId = pathParts.includes('projects') ? pathParts[pathParts.indexOf('projects') + 1] : null;
-
-                            const getDynamicPath = () => {
-                                if (!currentProjectId) return item.path;
-                                if (item.path === '/dashboard') return `/projects/${currentProjectId}`;
-                                if (item.path === '/requests') return `/projects/${currentProjectId}/requests`;
-                                if (item.path === '/automation') return `/projects/${currentProjectId}/web`;
-                                if (item.path === '/performance') return `/projects/${currentProjectId}/load`;
-                                return item.path;
-                            };
-                            const dynamicPath = getDynamicPath();
-                            const path = location.pathname;
-                            const isActive = path === dynamicPath;
-                            const isDisabled = item.requiresProject && !selectedProject && !currentProjectId;
+                            const dynamicPath = getDynamicPath(item);
+                            const isActive = location.pathname === dynamicPath;
+                            const isDisabled = item.requiresProject && !activeProjectId;
 
                             return (
                                 <NavLink
