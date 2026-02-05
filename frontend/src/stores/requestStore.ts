@@ -1,40 +1,10 @@
 import { create } from 'zustand';
-import api from '../services/api';
+import api from '../services/api/index';
+
+import type { RequestModel, ExecutionResult } from '../types/api.ts';
+export type { RequestModel, ExecutionResult };
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error';
-
-export interface ExecutionResult {
-    id: string;
-    status: number;
-    duration: number;
-    response: {
-        data: any;
-        headers?: any;
-    };
-    validationResult?: {
-        valid: boolean;
-        errors?: any[];
-    };
-    testResults?: {
-        name: string;
-        pass: boolean;
-        error?: string;
-    }[];
-    createdAt?: string;
-}
-
-export interface RequestModel {
-    id: string;
-    name?: string;
-    method: string;
-    url: string;
-    headers: any;
-    body: any;
-    testScript?: string;
-    expectedResponseSchema?: any;
-    executions?: ExecutionResult[];
-    projectId: string;
-}
 
 interface RequestState {
     // Data

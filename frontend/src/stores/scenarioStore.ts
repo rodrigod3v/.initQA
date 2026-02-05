@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../services/api';
+import api from '../services/api/index';
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error';
 

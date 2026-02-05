@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Projects from './pages/Projects';
 import ProjectHub from './pages/ProjectHub';
-import Requests from './pages/Requests';
+import HttpRequestPage from './pages/HttpRequest';
 import Comparison from './pages/Comparison';
 import Dashboard from './pages/Dashboard';
 import WebScenarios from './pages/WebScenarios';
@@ -51,7 +51,7 @@ const AppRoutes: React.FC = () => {
         path="/projects/:projectId/requests"
         element={
           <ProtectedRoute>
-            <Requests />
+            <HttpRequestPage />
           </ProtectedRoute>
         }
       />
@@ -91,7 +91,7 @@ const AppRoutes: React.FC = () => {
         path="/requests"
         element={
           <ProtectedRoute>
-            <Requests />
+            <HttpRequestPage />
           </ProtectedRoute>
         }
       />

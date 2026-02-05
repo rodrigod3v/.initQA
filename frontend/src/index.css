@@ -66,3 +66,29 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-sub);
 }
+
+/* Custom Scrollbar Classes */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-main) var(--bg-deep);
+}
+
+.custom-scrollbar-hide {
+  scrollbar-width: none;
+}
+
+.custom-scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Accessibility: Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

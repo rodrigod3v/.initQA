@@ -15,7 +15,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Tabs } from '../components/ui/Tabs';
 import { Modal } from '../components/ui/Modal';
-import { useLoadTestStore, type LoadTest } from '../stores/loadTestStore';
+import { useLoadTestStore } from '../stores/loadTestStore';
 
 interface Environment {
     id: string;

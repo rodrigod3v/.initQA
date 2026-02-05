@@ -1,5 +1,4 @@
-import React from 'react';
-import { Modal } from './Modal';
+import React, { useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { AlertTriangle } from 'lucide-react';
 
@@ -10,7 +9,7 @@ interface ConfirmModalProps {
     title: string;
     message: string;
     confirmText?: string;
-    variant?: 'danger' | 'accent';
+    cancelText?: string;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -19,44 +18,111 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     onConfirm,
     title,
     message,
-    confirmText = 'Confirm',
-    variant = 'danger'
+    confirmText = 'CONFIRM',
+    cancelText = 'CANCEL'
 }) => {
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title}>
-            <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                    <div className={`p-2 border-sharp border ${variant === 'danger' ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-accent/10 border-accent/30 text-accent'}`}>
-                        <AlertTriangle size={24} />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-sm font-mono text-primary-text leading-relaxed uppercase">
-                            {message}
-                        </p>
-                    </div>
-                </div>
+    const modalRef = useRef<HTMLDivElement>(null);
+    const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-                <div className="flex gap-3 pt-2">
-                    <Button
-                        variant="ghost"
-                        onClick={onClose}
-                        className="flex-1 text-xs uppercase tracking-widest"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant={variant === 'danger' ? 'danger' : 'primary'}
-                        onClick={() => {
-                            onConfirm();
-                            onClose();
-                        }}
-                        glow
-                        className="flex-1 text-xs uppercase tracking-widest"
-                    >
-                        {confirmText}
-                    </Button>
+    // Handle Escape key press
+    useEffect(() => {
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleEscape);
+            // Focus the cancel button when modal opens (safer default)
+            cancelButtonRef.current?.focus();
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isOpen, onClose]);
+
+    // Focus trap
+    useEffect(() => {
+        if (!isOpen || !modalRef.current) return;
+
+        const modal = modalRef.current;
+        const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        const handleTab = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab') return;
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstElement) {
+                    lastElement?.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === lastElement) {
+                    firstElement?.focus();
+                    e.preventDefault();
+                }
+            }
+        };
+
+        modal.addEventListener('keydown', handleTab as EventListener);
+        return () => modal.removeEventListener('keydown', handleTab as EventListener);
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-deep/90 backdrop-blur-sm"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
+            aria-describedby="confirm-modal-description"
+        >
+            <div
+                ref={modalRef}
+                className="bg-surface border-sharp border-danger/30 glow-danger w-full max-w-md overflow-hidden shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-main bg-danger/10">
+                    <AlertTriangle size={18} className="text-danger" aria-hidden="true" />
+                    <h3 id="confirm-modal-title" className="text-xs font-mono font-bold text-danger uppercase tracking-widest">
+                        {title}
+                    </h3>
+                </div>
+                <div className="p-6 space-y-6">
+                    <p id="confirm-modal-description" className="text-sm font-mono text-secondary-text leading-relaxed uppercase tracking-tight">
+                        {message}
+                    </p>
+                    <div className="flex gap-3">
+                        <Button
+                            ref={cancelButtonRef}
+                            variant="ghost"
+                            onClick={onClose}
+                            className="flex-1 text-xs uppercase tracking-widest"
+                        >
+                            {cancelText}
+                        </Button>
+                        <Button
+                            variant="danger"
+                            onClick={() => {
+                                onConfirm();
+                                onClose();
+                            }}
+                            glow
+                            className="flex-1 text-xs uppercase tracking-widest"
+                        >
+                            {confirmText}
+                        </Button>
+                    </div>
                 </div>
             </div>
-        </Modal>
+        </div>
     );
 };

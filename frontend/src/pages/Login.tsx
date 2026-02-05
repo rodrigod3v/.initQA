@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
-import api from '../services/api';
+import api from '../services/api/index';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('admin@initqa.com');
