@@ -10,7 +10,7 @@ This project follows a **Feature-Driven Design (FDD)** on the frontend and a **F
 - **Root**: Workspace management and common configuration.
 - **`backend/`**: NestJS application using Prisma ORM.
   - Standardized modules with dedicated DTOs and Entities.
-  - Consolidated root structure for faster discovery.
+  - **API Docs**: Fully documented via [Swagger/OpenAPI](SWAGGER.md).
 - **`frontend/`**: React application built with Vite.
   - **`src/features/`**: Complex business logic extracted into custom hooks and components.
   - **`src/shared/`**: Centralized UI design system, API services, and global types.
