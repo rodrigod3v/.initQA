@@ -3,12 +3,16 @@ import { ProjectService } from './project.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateEnvironmentDto } from './dto/create-environment.dto';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiTags('projects')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) { }
 
+  @ApiOperation({ summary: 'Create a new project' })
   @Post()
   create(@Body() data: CreateProjectDto) {
     return this.projectService.create(data);

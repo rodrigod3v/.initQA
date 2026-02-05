@@ -1,8 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
 import { LoadTestService } from './load-test.service';
 import { LoadExecutionService } from './execution/load-execution.service';
 import { CreateLoadTestDto, UpdateLoadTestDto } from './dto/load-test.dto';
 
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+@ApiTags('load-tests')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('load-tests')
 export class LoadTestController {
   constructor(
@@ -10,6 +16,7 @@ export class LoadTestController {
     private readonly loadExecutionService: LoadExecutionService,
   ) { }
 
+  @ApiOperation({ summary: 'Create a new load test' })
   @Post()
   create(@Body() createDto: CreateLoadTestDto) {
     return this.loadTestService.create(createDto);
@@ -35,6 +42,7 @@ export class LoadTestController {
     return this.loadTestService.remove(id);
   }
 
+  @ApiOperation({ summary: 'Execute a load test' })
   @Post(':id/execute')
   execute(@Param('id') id: string, @Query('environmentId') environmentId?: string) {
     return this.loadExecutionService.execute(id, environmentId);
