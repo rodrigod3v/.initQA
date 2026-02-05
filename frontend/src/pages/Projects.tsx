@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 // import api from '../services/api'; // Removed direct api access
-import { useProjectStore } from '../stores/projectStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { Plus, Folder, ChevronRight, Loader2, Terminal, Calendar, Trash2, Save } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
-import { Modal } from '../components/ui/Modal';
-import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/Input';
+import { Card } from '@/shared/ui/Card';
+import { Modal } from '@/shared/ui/Modal';
+import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 
 
 const Projects: React.FC = () => {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../services/api/index';
+import api from '@/shared/api';
 
 export interface LoadTest {
     id: string;
@@ -46,11 +46,11 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
         try {
             const response = await api.get(`/load-tests?projectId=${projectId}`);
             set({ tests: response.data, isLoading: false });
-            
+
             // Re-select logic
             const current = get().selectedTest;
             if (current && response.data.find((t: LoadTest) => t.id === current.id)) {
-                 // Keep selection
+                // Keep selection
             } else if (response.data.length > 0 && !current) {
                 set({ selectedTest: response.data[0] });
                 get().fetchHistory(response.data[0].id);
@@ -72,7 +72,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
     createTest: async (test) => {
         try {
             const response = await api.post('/load-tests', test);
-            set(state => ({ 
+            set(state => ({
                 tests: [...state.tests, response.data],
                 selectedTest: response.data
             }));

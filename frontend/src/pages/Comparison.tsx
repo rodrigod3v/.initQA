@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api/index';
-import Editor from '../components/Editor';
+import api from '@/shared/api';
+import Editor from '@/shared/ui/Editor';
 import {
     Activity,
     GitCompare,
@@ -10,10 +10,10 @@ import {
     CheckCircle2,
     Terminal
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
 
-import { useRequestStore } from '../stores/requestStore';
+import { useRequestStore } from '@/stores/requestStore';
 
 interface Environment {
     id: string;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import api from '../services/api';
+import api from '@/shared/api';
 import {
     Plus,
     Play,
@@ -11,11 +11,11 @@ import {
     X,
     FileText
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Tabs } from '../components/ui/Tabs';
-import { Modal } from '../components/ui/Modal';
-import { useLoadTestStore } from '../stores/loadTestStore';
+import { Button } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
+import { Tabs } from '@/shared/ui/Tabs';
+import { Modal } from '@/shared/ui/Modal';
+import { useLoadTestStore } from '@/stores/loadTestStore';
 
 interface Environment {
     id: string;

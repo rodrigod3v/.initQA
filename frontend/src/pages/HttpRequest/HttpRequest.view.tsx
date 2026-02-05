@@ -13,13 +13,13 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-react';
-import { MonacoEditor } from '../../components/MonacoEditor';
-import { Button } from '../../components/ui/Button';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
+import { MonacoEditor } from '@/shared/ui/MonacoEditor';
+import { Button } from '@/shared/ui/Button';
+import { Modal } from '@/shared/ui/Modal';
+import { Input } from '@/shared/ui/Input';
 import { httpRequestStyles as S } from './HttpRequest.styles';
-import type { SyncStatus } from '../../stores/requestStore';
-import type { RequestModel, ExecutionResult } from '../../types/api.ts';
+import type { SyncStatus } from '@/stores/requestStore';
+import type { RequestModel, ExecutionResult } from '@/shared/types/api';
 
 interface HttpRequestViewProps {
     requests: RequestModel[];

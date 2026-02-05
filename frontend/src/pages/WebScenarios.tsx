@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import api from '../services/api/index';
+import api from '@/shared/api';
 import {
     Plus,
     Play,
@@ -29,18 +29,15 @@ import {
     Trash2,
     Edit2
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Tabs } from '../components/ui/Tabs';
-import { Modal } from '../components/ui/Modal';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { Modal } from '@/shared/ui/Modal';
+import { Tabs } from '@/shared/ui/Tabs';
 
-import { useScenarioStore, type WebScenario, type Step } from '../stores/scenarioStore';
-
-interface Environment {
-    id: string;
-    name: string;
-    variables: any;
-}
+import { useScenarioStore, type WebScenario, type Step } from '@/stores/scenarioStore';
+import { useProjectMetadata } from '@/features/webScenario/hooks/useProjectMetadata';
+import { useWebScenarioHistory } from '@/features/webScenario/hooks/useWebScenarioHistory';
+import { useWebScenarioExecution } from '@/features/webScenario/hooks/useWebScenarioExecution';
 
 const WebScenarios: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
@@ -57,137 +54,57 @@ const WebScenarios: React.FC = () => {
     const updateLocalScenario = useScenarioStore(state => state.updateLocalScenario);
     const saveScenario = useScenarioStore(state => state.saveScenario);
     const deleteScenario = useScenarioStore(state => state.deleteScenario);
+
+    // Custom Hooks
+    const {
+        projects,
+        environments,
+        selectedEnvId,
+        setSelectedEnvId,
+        selectedProjectId,
+        setSelectedProjectId
+    } = useProjectMetadata(projectId);
+
+    const effectiveProjectId = projectId || selectedProjectId;
+
+    const {
+        projectHistory,
+        fetchProjectHistory
+    } = useWebScenarioHistory(effectiveProjectId, selectedScenario?.id);
+
+    const {
+        batchExecuting,
+        runningScenarios,
+        handleRunAll: runAll,
+    } = useWebScenarioExecution(selectedEnvId, fetchProjectHistory);
+
+    // Local State
     const [executing, setExecuting] = useState(false);
     const [lastExecution, setLastExecution] = useState<any>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newScenarioName, setNewScenarioName] = useState('');
     const [scenarioToEdit, setScenarioToEdit] = useState<WebScenario | null>(null);
     const [scenarioToDelete, setScenarioToDelete] = useState<WebScenario | null>(null);
-    const [projects, setProjects] = useState<any[]>([]);
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
-    const [environments, setEnvironments] = useState<Environment[]>([]);
-    const [selectedEnvId, setSelectedEnvId] = useState<string>('');
     const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
     const [scriptContent, setScriptContent] = useState('');
-    const [projectHistory, setProjectHistory] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'results' | 'activity'>('results');
-    const [batchExecuting, setBatchExecuting] = useState(false);
-    const [runningScenarios, setRunningScenarios] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        const id = projectId || selectedProjectId;
-        if (id) {
-            fetchScenarios(id);
-            fetchEnvironments(id);
+        if (effectiveProjectId) {
+            fetchScenarios(effectiveProjectId);
         }
-        fetchProjects();
-    }, [projectId, selectedProjectId]);
-
-    const fetchProjects = async () => {
-        try {
-            const response = await api.get('/projects');
-            setProjects(response.data);
-            if (!selectedProjectId && response.data.length > 0) {
-                setSelectedProjectId(response.data[0].id);
-            }
-        } catch (err) {
-            console.error('Failed to fetch projects');
-        }
-    };
-
-    const fetchEnvironments = async (pId: string) => {
-        try {
-            const response = await api.get(`/projects/${pId}/environments`);
-            setEnvironments(response.data);
-            if (response.data.length > 0) {
-                setSelectedEnvId(response.data[0].id);
-            }
-        } catch (err) {
-            console.error('Failed to fetch environments');
-        }
-    };
-
-    useEffect(() => {
-        const id = projectId || selectedProjectId;
-        if (id) {
-            fetchScenarios(id);
-        }
-    }, [projectId, selectedProjectId]);
-
-
-    const fetchProjectHistory = async () => {
-        const id = projectId || selectedProjectId;
-        if (!id) return;
-        try {
-            const response = await api.get(`/web-scenarios/project-history/${id}`);
-            setProjectHistory(response.data);
-        } catch (err) {
-            console.error('Failed to fetch project history');
-        }
-    };
+    }, [effectiveProjectId]);
 
     useEffect(() => {
         if (selectedScenario) {
             setLastExecution(null);
         }
-        fetchProjectHistory();
-    }, [selectedScenario, projectId, selectedProjectId]);
-
-    useEffect(() => {
-        if (!projectId && selectedProjectId) {
-            fetchScenarios(selectedProjectId);
-        }
-    }, [selectedProjectId]);
+    }, [selectedScenario]);
 
     const handleRunAll = async () => {
-        // Force refresh to ensure we have all scenarios
-        let currentScenarios = scenarios;
-        if (!projectId && selectedProjectId) {
-            try {
-                const response = await api.get(`/web-scenarios?projectId=${selectedProjectId}`);
-                currentScenarios = response.data;
-                // Do nothing, store handles this via fetchScenarios
-            } catch (e) {
-                console.error('Failed to refresh scenarios before run');
-            }
-        }
-
-        if (currentScenarios.length === 0) return;
-        setBatchExecuting(true);
+        await runAll(scenarios);
         setActiveTab('activity');
-
-        // Mark all as running initially
-        const running = new Set(currentScenarios.map(s => s.id));
-        setRunningScenarios(running);
-
-        try {
-            // Execute all simultaneously but track individual completion
-            await Promise.all(currentScenarios.map(async (s) => {
-                try {
-                    await api.post(`/web-scenarios/${s.id}/execute${selectedEnvId ? `?environmentId=${selectedEnvId}` : ''}`);
-                } catch (e) {
-                    console.error(`Failed to run scenario ${s.name}`);
-                } finally {
-                    // Update running state locally to reflect progress
-                    setRunningScenarios(prev => {
-                        const next = new Set(prev);
-                        next.delete(s.id);
-                        return next;
-                    });
-                    // Fetch latest history to show the result immediately
-                    fetchProjectHistory();
-                }
-            }));
-
-            if (selectedScenario) fetchProjectHistory();
-        } catch (err) {
-            console.error('Batch execution failed');
-        } finally {
-            setBatchExecuting(false);
-            setRunningScenarios(new Set());
-        }
     };
-
 
     const handleSave = async () => {
         if (!selectedScenario) return;
@@ -647,7 +564,7 @@ const WebScenarios: React.FC = () => {
                                                     </div>
                                                 ))}
 
-                                                {projectHistory.map((ex, idx) => (
+                                                {projectHistory.map((ex: any, idx: number) => (
                                                     <div
                                                         key={idx}
                                                         onClick={() => { setLastExecution(ex); setActiveTab('results'); }}

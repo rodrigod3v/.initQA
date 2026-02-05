@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, Monitor, Zap, GitCompare, Layers, ArrowRight, Activity, Clock } from 'lucide-react';
-import { Card } from '../components/ui/Card';
-import api from '../services/api/index';
+import {
+    Send,
+    Monitor,
+    Zap,
+    GitCompare,
+    Layers,
+    ArrowRight,
+    Activity,
+    Clock
+} from 'lucide-react';
+import { Card } from '@/shared/ui/Card';
+import api from '@/shared/api';
 
 interface ProjectStats {
     requests: number;
@@ -139,7 +148,7 @@ const ProjectHub: React.FC = () => {
                         >
                             <div className="relative z-10">
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 border-sharp border bg-${area.color}/10 border-${area.color}/30 text-${area.color}`}>
+                                    <div className={`p-3 border-sharp border bg-accent/10 border-accent/30 text-accent`}>
                                         <area.icon size={24} />
                                     </div>
                                     <ArrowRight

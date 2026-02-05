@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api/index';
-import Editor from '../components/Editor';
+import api from '@/shared/api';
+import Editor from '@/shared/ui/Editor';
 import {
     Plus,
     CheckCircle2,
@@ -19,15 +19,17 @@ import {
     History,
     Play
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
-import { Tabs } from '../components/ui/Tabs';
-import { Modal } from '../components/ui/Modal';
-import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/Input';
+import { Card } from '@/shared/ui/Card';
+import { Tabs } from '@/shared/ui/Tabs';
+import { Modal } from '@/shared/ui/Modal';
+import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 
-
-import { useRequestStore, type RequestModel } from '../stores/requestStore';
+import { useRequestStore, type RequestModel } from '@/stores/requestStore';
+import { useProjectMetadata } from '@/features/webScenario/hooks/useProjectMetadata';
+import { useRequestHistory } from '@/features/requests/hooks/useRequestHistory';
+import { useRequestExecution } from '@/features/requests/hooks/useRequestExecution';
 
 const Requests: React.FC = () => {
     const navigate = useNavigate();
@@ -38,35 +40,50 @@ const Requests: React.FC = () => {
         requests,
         selectedRequest,
         isLoading: loading,
-        executing,
-        lastResult,
         syncStatus,
         fetchRequests,
         selectRequest,
-        addRequest,
         updateLocalRequest,
         saveRequest,
         deleteRequest,
-        executeRequest,
         batchExecute,
         batchExecuting,
         runningRequests,
-        projectHistory,
-        fetchProjectHistory,
-        clearProjectHistory,
-        viewExecution
+        viewExecution,
+        clearProjectHistory
     } = useRequestStore(state => state);
 
+    // Custom Hooks
+    const {
+        projects,
+        environments,
+        setEnvironments,
+        selectedEnvId,
+        setSelectedEnvId,
+        selectedProjectId,
+        setSelectedProjectId,
+        fetchEnvironments
+    } = useProjectMetadata(projectId);
+
+    const effectiveProjectId = projectId || selectedProjectId;
+
+    const {
+        projectHistory,
+        fetchProjectHistory
+    } = useRequestHistory(effectiveProjectId, selectedRequest?.id);
+
+    const {
+        executing,
+        lastExecution: lastResult,
+        setLastExecution: setLastResult,
+        handleExecute: runSingle
+    } = useRequestExecution(selectedEnvId, fetchProjectHistory);
+
+    // Local State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newRequestName, setNewRequestName] = useState('');
     const [copySuccess, setCopySuccess] = useState<string | null>(null);
     const [activeResultTab, setActiveResultTab] = useState('response');
-    const [projects, setProjects] = useState<any[]>([]);
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
-
-    // Environment State
-    const [environments, setEnvironments] = useState<any[]>([]);
-    const [selectedEnvId, setSelectedEnvId] = useState<string>('');
     const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
     const [envName, setEnvName] = useState('');
     const [envVariables, setEnvVariables] = useState('{\n  "BASE_URL": "https://api.example.com\"\n}');
@@ -85,54 +102,26 @@ const Requests: React.FC = () => {
         onConfirm: () => { }
     });
 
-    // Tab control
     const [activeTab, setActiveTab] = useState('payload');
 
     useEffect(() => {
-        const id = projectId || selectedProjectId;
-        if (id) {
-            fetchRequests(id);
-            fetchEnvironments(id);
-            fetchProjectHistory(id);
+        if (effectiveProjectId) {
+            fetchRequests(effectiveProjectId);
+            fetchProjectHistory();
         }
-        fetchProjects();
-    }, [projectId, selectedProjectId]);
-
-    const fetchProjects = async () => {
-        try {
-            const response = await api.get('/projects');
-            setProjects(response.data);
-            if (!selectedProjectId && response.data.length > 0) {
-                setSelectedProjectId(response.data[0].id);
-            }
-        } catch (err) {
-            console.error('Failed to fetch projects');
-        }
-    };
-
-    const fetchEnvironments = async (pId: string) => {
-        try {
-            const response = await api.get(`/projects/${pId}/environments`);
-            setEnvironments(response.data);
-            if (response.data.length > 0 && !selectedEnvId) {
-                setSelectedEnvId(response.data[0].id);
-            }
-        } catch (err) {
-            console.error('Failed to fetch environments');
-        }
-    };
+    }, [effectiveProjectId]);
 
     const handleCreateEnvironment = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const response = await api.post(`/projects/${projectId}/environments`, {
+            const response = await api.post(`/projects/${effectiveProjectId}/environments`, {
                 name: envName,
                 variables: JSON.parse(envVariables)
             });
-            setEnvironments([...environments, response.data]);
-            setSelectedEnvId(response.data.id);
             setIsEnvModalOpen(false);
             setEnvName('');
+            setEnvironments([...environments, response.data]);
+            setSelectedEnvId(response.data.id);
         } catch (err) {
             console.error('Failed to create environment');
         }
@@ -142,18 +131,18 @@ const Requests: React.FC = () => {
         e.preventDefault();
         try {
             const isUrl = newRequestName.startsWith('http://') || newRequestName.startsWith('https://');
-
-
-            const response = await api.post('/requests', {
+            await api.post('/requests', {
                 name: isUrl ? new URL(newRequestName).pathname.slice(1) || newRequestName : newRequestName,
-                projectId,
+                projectId: effectiveProjectId,
                 method: 'GET',
                 url: isUrl ? newRequestName : 'https://api.example.com/status',
                 headers: {},
                 body: {}
             });
-            addRequest(response.data);
-            selectRequest(response.data);
+            if (effectiveProjectId) {
+                fetchRequests(effectiveProjectId);
+                fetchEnvironments(effectiveProjectId);
+            }
             setNewRequestName('');
             setIsCreateModalOpen(false);
         } catch (err) {
@@ -164,11 +153,11 @@ const Requests: React.FC = () => {
     const handleExecute = async () => {
         if (!selectedRequest) return;
         setActiveResultTab('response');
-        await executeRequest(selectedRequest.id, selectedEnvId || undefined);
+        await runSingle(selectedRequest.id, () => saveRequest(selectedRequest.id));
     };
 
     const handleRunAll = async () => {
-        const id = projectId || selectedProjectId;
+        const id = effectiveProjectId;
         if (!id || requests.length === 0) return;
 
         setActiveResultTab('activity');
@@ -184,6 +173,7 @@ const Requests: React.FC = () => {
 
     const handleLoadHistory = (execution: any) => {
         viewExecution(execution);
+        setLastResult(execution);
         setActiveResultTab('response');
     };
 
@@ -212,7 +202,7 @@ const Requests: React.FC = () => {
 
 
     const handleClearProjectHistory = async () => {
-        const id = projectId || selectedProjectId;
+        const id = effectiveProjectId;
         if (!id) return;
         setConfirmConfig({
             isOpen: true,
@@ -221,6 +211,7 @@ const Requests: React.FC = () => {
             confirmText: 'PURGE_ALL_DATA',
             onConfirm: async () => {
                 await clearProjectHistory(id);
+                fetchProjectHistory();
             }
         });
     };
@@ -641,7 +632,7 @@ const Requests: React.FC = () => {
 
                                                     {lastResult.testResults && lastResult.testResults.length > 0 ? (
                                                         <div className="grid grid-cols-2 gap-2">
-                                                            {lastResult.testResults.map((test, i) => (
+                                                            {lastResult.testResults.map((test: any, i: number) => (
                                                                 <div key={i} className={`p-2 border-sharp flex flex-col font-mono text-[9px] uppercase tracking-wider
                                                                 ${test.pass ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
                                                                     <div className="flex items-center gap-1.5">
