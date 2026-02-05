@@ -208,23 +208,33 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                         </select>
                                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-accent/50 pointer-events-none" />
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        onClick={async () => { if (selectedEnvId) await onDeleteEnv(selectedEnvId); }}
-                                        className="h-full w-8 border-l border-main rounded-none hover:bg-rose-500/10 p-0"
-                                        title="Delete Environment"
-                                        aria-label="Delete selected environment"
-                                    >
-                                        <Trash2 size={12} className="text-rose-500/50" aria-hidden="true" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => setIsEnvModalOpen(true)}
-                                        className="h-full w-8 border-l border-main rounded-none hover:bg-white/5 p-0"
-                                        aria-label="Create new environment"
-                                    >
-                                        <Plus size={12} className="text-accent/50" aria-hidden="true" />
-                                    </Button>
+                                    <div className="relative group/delete">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={async () => { if (selectedEnvId) await onDeleteEnv(selectedEnvId); }}
+                                            disabled={!selectedEnvId}
+                                            className="h-full w-8 border-l border-main rounded-none hover:bg-rose-500/10 p-0 transition-all"
+                                            aria-label="Delete selected environment"
+                                        >
+                                            <Trash2 size={12} className="text-rose-500/50 group-hover/delete:text-rose-500" aria-hidden="true" />
+                                        </Button>
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-deep border border-rose-500/30 text-rose-500 text-[8px] font-mono uppercase tracking-wider whitespace-nowrap opacity-0 group-hover/delete:opacity-100 pointer-events-none transition-opacity z-50">
+                                            Delete Env
+                                        </div>
+                                    </div>
+                                    <div className="relative group/add">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => setIsEnvModalOpen(true)}
+                                            className="h-full w-8 border-l border-main rounded-none hover:bg-accent/10 p-0 transition-all"
+                                            aria-label="Create new environment"
+                                        >
+                                            <Plus size={12} className="text-accent/50 group-hover/add:text-accent" aria-hidden="true" />
+                                        </Button>
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-deep border border-accent/30 text-accent text-[8px] font-mono uppercase tracking-wider whitespace-nowrap opacity-0 group-hover/add:opacity-100 pointer-events-none transition-opacity z-50">
+                                            New Env
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <input

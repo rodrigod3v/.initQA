@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Send, GitCompare, LogOut, Terminal, Layers, Monitor, Zap } from 'lucide-react';
+import { LayoutDashboard, Send, GitCompare, LogOut, Terminal, Layers, Monitor, Zap, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
@@ -12,6 +12,7 @@ export const Sidebar: React.FC = () => {
         {
             title: 'General',
             items: [
+                { icon: Home, label: 'Home', path: '/' },
                 { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
                 { icon: Layers, label: 'Projects', path: '/projects' },
             ]

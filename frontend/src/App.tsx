@@ -1,7 +1,8 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import Home from './pages/Home';
 import Projects from './pages/Projects';
 import ProjectHub from './pages/ProjectHub';
 import HttpRequestPage from './pages/HttpRequest';
@@ -20,6 +21,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AppRoutes: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // When the component first mounts (on reload), 
+    // if we are not at root, redirect to root.
+    if (location.pathname !== '/') {
+      navigate('/', { replace: true });
+    }
+  }, []); // Only run once on mount
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -103,8 +115,15 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      {/* Redirect root to dashboard or login */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Home page as default route */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 };
