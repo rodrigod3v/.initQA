@@ -10,7 +10,7 @@ import Comparison from './pages/Comparison';
 import Dashboard from './pages/Dashboard';
 import WebScenarios from './pages/WebScenarios';
 import LoadTests from './pages/LoadTests';
-import Layout from './components/Layout';
+import Layout from '@/shared/ui/Layout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();

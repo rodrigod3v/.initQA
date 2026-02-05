@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api/index';
+import api from '@/shared/api';
 import {
     LayoutDashboard,
     Activity,
@@ -12,7 +12,7 @@ import {
     TrendingUp,
     Zap
 } from 'lucide-react';
-import { Card } from '../components/ui/Card';
+import { Card } from '@/shared/ui/Card';
 
 interface DashboardStats {
     global: {

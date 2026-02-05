@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../services/api/index';
+import api from '@/shared/api';
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -22,7 +22,7 @@ interface ScenarioState {
     scenarios: WebScenario[];
     projectScenarios: WebScenario[]; // Scenarios filtered by project
     selectedScenario: WebScenario | null;
-    
+
     // UI States
     isLoading: boolean;
     syncStatus: SyncStatus;
@@ -31,13 +31,13 @@ interface ScenarioState {
     // Actions
     fetchScenarios: (projectId: string) => Promise<void>;
     selectScenario: (scenario: WebScenario | null) => void;
-    
+
     // CRUD & Sync
     addScenario: (scenario: WebScenario) => void;
     updateLocalScenario: (id: string, updates: Partial<WebScenario>) => void;
     saveScenario: (id: string) => Promise<void>; // Actual API call
     deleteScenario: (id: string) => Promise<void>;
-    
+
     // Helpers
     setSyncStatus: (status: SyncStatus) => void;
 }
@@ -57,16 +57,16 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
         set({ isLoading: true });
         try {
             const response = await api.get(`/web-scenarios?projectId=${projectId}`);
-            set({ 
+            set({
                 scenarios: response.data,
                 projectScenarios: response.data, // For now assuming simple filtering
                 isLoading: false,
                 lastError: null
             });
         } catch (error) {
-            set({ 
-                isLoading: false, 
-                lastError: 'Failed to fetch scenarios' 
+            set({
+                isLoading: false,
+                lastError: 'Failed to fetch scenarios'
             });
         }
     },
@@ -84,13 +84,13 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
     updateLocalScenario: (id, updates) => {
         // Optimistic update
         set((state) => {
-            const updatedScenarios = state.scenarios.map(s => 
+            const updatedScenarios = state.scenarios.map(s =>
                 s.id === id ? { ...s, ...updates } : s
             );
-            
+
             // Also update selected if it's the one being modified
-            const updatedSelected = state.selectedScenario?.id === id 
-                ? { ...state.selectedScenario, ...updates } 
+            const updatedSelected = state.selectedScenario?.id === id
+                ? { ...state.selectedScenario, ...updates }
                 : state.selectedScenario;
 
             return {
@@ -102,7 +102,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
 
         // Debounced Save
         if (saveTimeout) clearTimeout(saveTimeout);
-        
+
         saveTimeout = setTimeout(async () => {
             await get().saveScenario(id);
         }, 1000); // 1 second debounce
@@ -119,7 +119,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
                 steps: scenario.steps
             });
             set({ syncStatus: 'saved', lastError: null });
-            
+
             // Reset to 'idle' after 2 seconds to hide the "Saved" badge gracefully
             setTimeout(() => {
                 // Only reset if still 'saved' (user didn't make new edits)
@@ -127,7 +127,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
                     set({ syncStatus: 'idle' });
                 }
             }, 2000);
-            
+
         } catch (error) {
             console.error('Save failed', error);
             set({ syncStatus: 'error', lastError: 'Failed to save changes' });

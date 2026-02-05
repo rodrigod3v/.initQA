@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api/index';
+import api from '@/shared/api';
 import {
     Rocket,
     Package,
@@ -15,8 +15,8 @@ import {
     ArrowRight,
     Activity
 } from 'lucide-react';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
 
 interface HomeStats {
     global: {

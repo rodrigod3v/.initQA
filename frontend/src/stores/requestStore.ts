@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import api from '../services/api/index';
+import api from '@/shared/api';
 
-import type { RequestModel, ExecutionResult } from '../types/api.ts';
+import type { RequestModel, ExecutionResult } from '@/shared/types/api';
 export type { RequestModel, ExecutionResult };
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error';

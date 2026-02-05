@@ -1,4 +1,4 @@
-import { requestService } from '../../services/api/request.service';
+import { requestService } from '@/shared/api/request.service';
 import type { RunTestPayload, RunTestResult } from './runTest.types';
 
 export const runTestActions = {

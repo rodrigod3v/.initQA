@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { HttpRequestView } from './HttpRequest.view';
-import { useRequestStore } from '../../stores/requestStore';
-import api from '../../services/api/index';
-import type { RequestModel } from '../../types/api.ts';
+import { useRequestStore } from '@/stores/requestStore';
+import api from '@/shared/api';
+import type { RequestModel } from '@/shared/types/api';
 
 export const HttpRequestPage: React.FC = () => {
     const navigate = useNavigate();

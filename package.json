@@ -3,17 +3,17 @@
   "version": "0.0.1",
   "private": true,
   "workspaces": [
-    "backend/api",
+    "backend",
     "frontend"
   ],
   "scripts": {
-    "dev": "npm run clean:ports && concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend/api\"",
+    "dev": "npm run clean:ports && concurrently \"npm run dev -w frontend\" \"npm run start:dev -w backend\"",
     "clean:ports": "lsof -ti :3000,5173 | xargs kill -9 2>/dev/null || true",
-    "start:backend": "npm run start:dev -w backend/api",
-    "start:dev": "npm run start:dev -w backend/api",
+    "start:backend": "npm run start:dev -w backend",
+    "start:dev": "npm run start:dev -w backend",
     "start:frontend": "npm run dev -w frontend",
-    "test:backend": "npm run test -w backend/api",
-    "build": "npm run build -w backend/api && npm run build -w frontend"
+    "test:backend": "npm run test -w backend",
+    "build": "npm run build -w backend && npm run build -w frontend"
   },
   "keywords": [],
   "author": "",
