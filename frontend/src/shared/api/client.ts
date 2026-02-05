@@ -1,8 +1,18 @@
 import axios from 'axios';
 import type { AxiosInstance } from 'axios';
+import axiosRetry from 'axios-retry';
 
 const client: AxiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api',
+});
+
+axiosRetry(client, {
+    retries: 3,
+    retryDelay: axiosRetry.exponentialDelay,
+    retryCondition: (error) => {
+        return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+            (error.response?.status ? error.response.status >= 500 : false);
+    }
 });
 
 client.interceptors.request.use((config) => {

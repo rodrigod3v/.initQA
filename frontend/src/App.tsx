@@ -7,7 +7,6 @@ import Projects from './pages/Projects';
 import ProjectHub from './pages/ProjectHub';
 import HttpRequestPage from './pages/HttpRequest';
 import Comparison from './pages/Comparison';
-import Dashboard from './pages/Dashboard';
 import WebScenarios from './pages/WebScenarios';
 import LoadTests from './pages/LoadTests';
 import Layout from '@/shared/ui/Layout';
@@ -35,14 +34,6 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/projects"
         element={

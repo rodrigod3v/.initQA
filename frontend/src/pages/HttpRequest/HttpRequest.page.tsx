@@ -28,6 +28,8 @@ export const HttpRequestPage: React.FC = () => {
         saveRequest,
         deleteRequest,
         executeRequest,
+        batchExecute,
+        batchExecuting,
         fetchProjectHistory,
         clearProjectHistory
     } = useRequestStore(state => state);
@@ -116,9 +118,9 @@ export const HttpRequestPage: React.FC = () => {
             selectedRequest={selectedRequest}
             onSelectRequest={selectRequest}
             onRunTest={handleExecute}
-            onRunSuite={() => { }} // Batch execute not implemented in view yet
+            onRunSuite={() => batchExecute(projectId, selectedEnvId || undefined)}
             isRunningTest={executing}
-            isRunningSuite={false}
+            isRunningSuite={batchExecuting}
             testResult={lastResult}
             projectHistory={projectHistory}
 

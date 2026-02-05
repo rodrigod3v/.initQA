@@ -17,6 +17,12 @@ export interface ExecutionResult {
     response: {
         data: any;
         headers?: any;
+        error?: string;
+        message?: string;
+    };
+    request?: {
+        name: string;
+        method: string;
     };
     validationResult?: {
         valid: boolean;
