@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import Home from './pages/Home';
 import Projects from './pages/Projects';
 import ProjectHub from './pages/ProjectHub';
 import HttpRequestPage from './pages/HttpRequest';
@@ -103,8 +104,15 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      {/* Redirect root to dashboard or login */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Home page as default route */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 };
