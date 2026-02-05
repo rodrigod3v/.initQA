@@ -60,19 +60,24 @@ export const Sidebar: React.FC = () => {
                             </div>
                         )}
                         {group.items.map((item) => {
-                            // Custom active logic for project-scoped routes
+                            // Custom active logic and dynamic paths for project-scoped routes
+                            const pathParts = location.pathname.split('/');
+                            const currentProjectId = pathParts.includes('projects') ? pathParts[pathParts.indexOf('projects') + 1] : null;
+
+                            const getDynamicPath = () => {
+                                if (!currentProjectId) return item.path;
+                                if (item.path === '/requests') return `/projects/${currentProjectId}/requests`;
+                                if (item.path === '/automation') return `/projects/${currentProjectId}/web`;
+                                if (item.path === '/performance') return `/projects/${currentProjectId}/load`;
+                                return item.path;
+                            };
+
+                            const dynamicPath = getDynamicPath();
+
                             const isItemActive = () => {
                                 const path = location.pathname;
-
-                                // Exact match for non-project routes
-                                if (item.path === path) return true;
-
-                                // Handle project-scoped routes
-                                if (item.path === '/requests' && path.includes('/projects/') && path.includes('/requests')) return true;
-                                if (item.path === '/automation' && path.includes('/projects/') && path.includes('/web')) return true;
-                                if (item.path === '/performance' && path.includes('/projects/') && path.includes('/load')) return true;
-                                if (item.path === '/projects' && path.match(/^\/projects\/[^\/]+$/)) return true; // /projects/:id only
-
+                                if (dynamicPath === path) return true;
+                                if (item.path === '/projects' && path.match(/^\/projects\/[^\/]+$/)) return true;
                                 return false;
                             };
 
@@ -81,7 +86,7 @@ export const Sidebar: React.FC = () => {
                             return (
                                 <NavLink
                                     key={item.path}
-                                    to={item.path}
+                                    to={dynamicPath}
                                     className={`
                   flex items-center gap-3 px-4 py-2 transition-colors relative
                   ${isActive

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Send, Monitor, Zap, GitCompare, Layers, ArrowRight, Activity, Clock } from 'lucide-react';
 import { Card } from '../components/ui/Card';
-import api from '../services/api';
+import api from '../services/api/index';
 
 interface ProjectStats {
     requests: number;

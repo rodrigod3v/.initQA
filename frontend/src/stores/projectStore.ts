@@ -19,7 +19,7 @@ interface ProjectState {
     selectProject: (project: Project | null) => void;
 }
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
+export const useProjectStore = create<ProjectState>((set) => ({
     projects: [],
     selectedProject: null,
     isLoading: false,
