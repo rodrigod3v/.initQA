@@ -16,6 +16,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateRequestDto, UpdateRequestDto } from './dto/request.dto';
 import { CompareRequestsDto } from './dto/compare-requests.dto';
 
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+
+@ApiTags('requests')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('requests')
 export class RequestController {
@@ -25,11 +29,13 @@ export class RequestController {
     private readonly comparisonService: ComparisonService,
   ) { }
 
+  @ApiOperation({ summary: 'Create a new request' })
   @Post()
   create(@Body() data: CreateRequestDto) {
     return this.requestService.create(data);
   }
 
+  @ApiOperation({ summary: 'Execute a single request' })
   @Post(':id/execute')
   execute(
     @Param('id') id: string,
