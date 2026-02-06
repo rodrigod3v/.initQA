@@ -208,7 +208,7 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
             </header>
 
             {/* Main Application Body */}
-            <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <main className={S.main}>
                 {/* Request Sidebar */}
                 <aside className={S.sidebar}>
                     <div className={S.sidebarHeader}>

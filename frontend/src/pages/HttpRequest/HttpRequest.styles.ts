@@ -24,7 +24,7 @@ export const httpRequestStyles = {
     editorContainer: "flex-1 flex flex-col min-w-0 gap-4 overflow-hidden min-h-[400px] lg:min-h-0",
 
     // Controls
-    controls: "p-2 md:p-4 border-b border-main/10 flex flex-col gap-4 bg-deep/20 shrink-0",
+    controls: "py-2 md:py-4 border-b border-main/10 flex flex-col gap-4 bg-deep/20 shrink-0",
     urlBar: "flex flex-col sm:flex-row items-stretch sm:items-center gap-2",
     methodSelect: "bg-surface border-sharp border-main/20 px-3 md:px-6 h-10 md:h-12 font-mono text-xs md:text-sm text-accent focus:outline-none focus:border-accent/40 w-full sm:w-auto",
     urlInput: "flex-1 bg-surface border-sharp border-main/20 px-4 h-10 md:h-12 font-mono text-xs md:text-sm text-primary-text focus:outline-none focus:border-accent/40 placeholder:opacity-20 w-full",
@@ -35,7 +35,7 @@ export const httpRequestStyles = {
     editorBody: "flex-1 flex flex-col min-h-0 border border-main/10 bg-surface/30 overflow-hidden rounded-sm",
     editorPlaceholder: "h-full flex flex-col items-center justify-center opacity-5 uppercase font-mono tracking-[0.4em] text-[10px]",
 
-    resultsPanel: "w-full lg:w-[420px] bg-surface/5 border border-main/10 flex flex-col shrink-0 overflow-hidden relative rounded-sm h-[400px] lg:h-auto",
+    resultsPanel: "w-full md:w-[320px] lg:w-[420px] bg-surface/5 border border-main/10 flex flex-col shrink-0 overflow-hidden relative rounded-sm h-[400px] md:h-auto",
     resultsHeader: "h-12 border-b border-main/10 bg-deep/50 flex items-center justify-between px-4 shrink-0",
     resultsTitle: "text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-accent flex items-center gap-2",
     resultsContent: "flex-1 overflow-hidden flex flex-col",

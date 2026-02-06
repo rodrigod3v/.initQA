@@ -56,6 +56,29 @@ Generate production-ready bundles for both layers:
 npm run build
 ```
 
+### Testing
+Run comprehensive unit tests for both layers:
+#### Frontend (Vitest)
+```bash
+cd frontend
+npm run test
+```
+### Testing
+Run comprehensive unit tests for both layers:
+#### Frontend (Vitest)
+```bash
+cd frontend
+npm run test
+```
+*Coverage: Services, Hooks, UI Components*
+
+#### Backend (Jest)
+```bash
+cd backend
+npm run test
+```
+*Coverage: Services, Controllers, Utils, Auth*
+
 ## 📂 Project Organization
 
 ```text
