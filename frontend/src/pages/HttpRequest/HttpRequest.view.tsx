@@ -145,65 +145,47 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                         </select>
                     </div>
 
-                    {selectedRequest && (
-                        <div className="flex items-center gap-2 flex-1 max-w-2xl">
-                            <div className="flex-1 flex items-center bg-deep border border-main h-10 rounded-sm overflow-hidden px-1">
-                                <select
-                                    value={selectedRequest.method}
-                                    onChange={(e) => onUpdateRequest('method', e.target.value)}
-                                    className="bg-transparent border-none text-accent font-mono font-bold text-[11px] px-3 focus:outline-none cursor-pointer h-full outline-none"
-                                >
-                                    {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(m => <option key={m}>{m}</option>)}
-                                </select>
-                                <div className="w-px h-4 bg-main opacity-30" />
-                                <input
-                                    type="text"
-                                    value={selectedRequest.url}
-                                    onChange={(e) => onUpdateRequest('url', e.target.value)}
-                                    className="flex-1 bg-transparent border-none px-4 text-[11px] text-primary-text font-mono focus:outline-none placeholder:text-secondary-text/20"
-                                    placeholder="ENDPOINT_URL"
-                                />
-                                <div className="w-px h-4 bg-main opacity-30 mx-1" />
-                                <select
-                                    value={selectedEnvId}
-                                    onChange={(e) => onSelectEnv(e.target.value)}
-                                    className="bg-transparent border-none text-accent font-mono text-[11px] px-3 focus:outline-none cursor-pointer h-full outline-none"
-                                >
-                                    <option value="">NO_ENV</option>
-                                    {environments.map(env => (
-                                        <option key={env.id} value={env.id}>{env.name.toUpperCase()}</option>
-                                    ))}
-                                </select>
-                                <div className="flex items-center gap-1 border-l border-main h-full px-1">
-                                    <button
-                                        onClick={() => setIsEnvModalOpen(true)}
-                                        className="p-1.5 hover:bg-accent/10 hover:text-accent text-secondary-text rounded transition-colors"
-                                        title="New Environment"
-                                    >
-                                        <Plus size={14} />
-                                    </button>
-                                    <button
-                                        onClick={async () => { if (selectedEnvId) await onDeleteEnv(selectedEnvId); }}
-                                        disabled={!selectedEnvId}
-                                        className="p-1.5 hover:bg-rose-500/10 hover:text-rose-500 text-secondary-text disabled:opacity-30 rounded transition-colors"
-                                        title="Delete Environment"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <Button
-                                onClick={onRunTest}
-                                disabled={isRunningTest}
-                                glow
-                                className="px-6 text-[10px] uppercase tracking-widest h-10 gap-2 shrink-0"
+                    <div className="flex items-center bg-deep border border-main h-10 rounded-sm overflow-hidden px-1">
+                        <span className="text-[10px] font-mono text-secondary-text uppercase tracking-widest hidden lg:inline border-r border-main/50 pr-3 pl-2">ENV:</span>
+                        <select
+                            value={selectedEnvId}
+                            onChange={(e) => onSelectEnv(e.target.value)}
+                            className="bg-transparent border-none text-accent font-mono text-[11px] px-3 focus:outline-none cursor-pointer h-full outline-none"
+                        >
+                            <option value="">NO_ENV</option>
+                            {environments.map(env => (
+                                <option key={env.id} value={env.id}>{env.name.toUpperCase()}</option>
+                            ))}
+                        </select>
+                        <div className="flex items-center gap-1 border-l border-main h-full px-1">
+                            <button
+                                onClick={() => setIsEnvModalOpen(true)}
+                                className="p-1.5 hover:bg-accent/10 hover:text-accent text-secondary-text rounded transition-colors"
+                                title="New Environment"
                             >
-                                {isRunningTest ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                                EXECUTE
-                            </Button>
+                                <Plus size={14} />
+                            </button>
+                            <button
+                                onClick={async () => { if (selectedEnvId) await onDeleteEnv(selectedEnvId); }}
+                                disabled={!selectedEnvId}
+                                className="p-1.5 hover:bg-rose-500/10 hover:text-rose-500 text-secondary-text disabled:opacity-30 rounded transition-colors"
+                                title="Delete Environment"
+                            >
+                                <Trash2 size={14} />
+                            </button>
                         </div>
-                    )}
+                    </div>
+
+                    <Button
+                        onClick={onRunSuite}
+                        disabled={isRunningSuite}
+                        variant="ghost"
+                        glow={isRunningSuite}
+                        className="h-10 px-6 text-[10px] uppercase tracking-widest gap-2"
+                    >
+                        {isRunningSuite ? <Loader2 size={14} className="animate-spin" /> : <Layers size={14} />}
+                        RUN_SUITE
+                    </Button>
                 </div>
             </header>
 
@@ -297,17 +279,6 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                     ]}
                                     activeTab={activeEditorTab}
                                     onTabChange={setActiveEditorTab}
-                                    rightContent={
-                                        <Button
-                                            onClick={onRunSuite}
-                                            disabled={isRunningSuite}
-                                            variant="ghost"
-                                            className="h-full px-4 text-[10px] text-accent/60 hover:text-accent border-none"
-                                        >
-                                            {isRunningSuite ? <Loader2 size={12} className="animate-spin mr-2" /> : <Layers size={12} className="mr-2" />}
-                                            RUN_SUITE
-                                        </Button>
-                                    }
                                 />
 
                                 <div className="flex-1 min-h-0 relative">
