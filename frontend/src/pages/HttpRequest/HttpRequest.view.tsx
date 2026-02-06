@@ -10,7 +10,9 @@ import {
     RotateCcw,
     Loader2,
     CheckCircle2,
-    XCircle
+    XCircle,
+    Sparkles,
+    Link2
 } from 'lucide-react';
 import { MonacoEditor } from '@/shared/ui/MonacoEditor';
 import { Button } from '@/shared/ui/Button';
@@ -43,13 +45,14 @@ interface HttpRequestViewProps {
     onCreateEnv: (name: string, vars: string) => Promise<void>;
     onDeleteEnv: (id: string) => Promise<void>;
     syncStatus: SyncStatus;
-    onSave: () => Promise<void>;
     onDelete: () => Promise<void>;
     onUpdateRequest: (field: keyof RequestModel, value: any) => void;
     onCreateRequest: (name: string) => Promise<void>;
     onDeleteRequest: (id: string) => Promise<void>;
     onClearHistory: () => Promise<void>;
     onViewHistory: (execution: ExecutionResult) => void;
+    onMagicAssert: () => void;
+    onMagicChain: (path: string, value: any) => void;
 }
 
 export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
@@ -75,7 +78,9 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
         onCreateRequest,
         onDeleteRequest,
         onClearHistory,
-        onViewHistory
+        onViewHistory,
+        onMagicAssert,
+        onMagicChain
     } = props;
 
     // Local UI State
@@ -242,6 +247,13 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                     <div className={S.controls}>
                         <div className={S.urlBar}>
                             <select
+                                value={selectedRequest?.protocol || 'REST'}
+                                onChange={(e) => onUpdateRequest('protocol', e.target.value)}
+                                className={S.protocolSelect}
+                            >
+                                {['REST', 'GRAPHQL', 'GRPC'].map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                            <select
                                 value={selectedRequest?.method || 'GET'}
                                 onChange={(e) => onUpdateRequest('method', e.target.value)}
                                 className={S.methodSelect}
@@ -355,11 +367,31 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                         {activeResultTab === 'response' && (
                             <div className="flex-1 relative">
                                 {testResult ? (
-                                    <MonacoEditor
-                                        value={formatEditorValue(testResult.response.data)}
-                                        onChange={() => { }}
-                                        readOnly={true}
-                                    />
+                                    <>
+                                        {/* Magic Chain Overlay */}
+                                        <div className="absolute top-2 right-2 z-10 flex flex-wrap gap-2 pointer-events-none">
+                                            {typeof testResult.response.data === 'object' && testResult.response.data !== null &&
+                                                Object.entries(testResult.response.data)
+                                                    .filter(([k]) => ['token', 'id', 'user_id', 'access_token', 'sid'].some(key => k.toLowerCase().includes(key)))
+                                                    .slice(0, 3)
+                                                    .map(([k, v]) => (
+                                                        <Button
+                                                            key={k}
+                                                            onClick={() => onMagicChain(k, v)}
+                                                            variant="ghost"
+                                                            className="h-6 px-2 text-[8px] gap-1 bg-deep border border-accent/30 text-accent hover:bg-accent/20 pointer-events-auto shadow-lg"
+                                                        >
+                                                            <Link2 size={10} />
+                                                            CHAIN_{k.toUpperCase()}
+                                                        </Button>
+                                                    ))}
+                                        </div>
+                                        <MonacoEditor
+                                            value={formatEditorValue(testResult.response.data)}
+                                            onChange={() => { }}
+                                            readOnly={true}
+                                        />
+                                    </>
                                 ) : (
                                     <div className={S.editorPlaceholder}>No_Data</div>
                                 )}
@@ -430,9 +462,19 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest pl-1">Functional_Tests</h3>
-                                            <span className="text-[9px] font-mono text-secondary-text opacity-50">
-                                                {testResult.testResults?.filter(t => t.pass).length || 0} / {testResult.testResults?.length || 0} PASS
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    onClick={onMagicAssert}
+                                                    variant="ghost"
+                                                    className="h-6 px-2 text-[8px] gap-1 text-accent border-accent/20 hover:bg-accent/10"
+                                                >
+                                                    <Sparkles size={10} />
+                                                    MAGIC_ASSERT
+                                                </Button>
+                                                <span className="text-[9px] font-mono text-secondary-text opacity-50">
+                                                    {testResult.testResults?.filter(t => t.pass).length || 0} / {testResult.testResults?.length || 0} PASS
+                                                </span>
+                                            </div>
                                         </div>
                                         {testResult.testResults && testResult.testResults.length > 0 ? (
                                             <div className="space-y-2">

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoadTestService } from './load-test.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -51,7 +52,9 @@ describe('LoadTestService', () => {
 
     const result = await service.findAll('1');
     expect(result).toEqual(expected);
-    expect(prisma.loadTest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { projectId: '1' } }));
+    expect(prisma.loadTest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { projectId: '1' } }),
+    );
   });
 
   it('delete', async () => {
@@ -59,7 +62,9 @@ describe('LoadTestService', () => {
     (prisma.loadTest.delete as jest.Mock).mockResolvedValue({ id: '1' });
 
     await service.remove('1');
-    expect(prisma.loadExecution.deleteMany).toHaveBeenCalledWith({ where: { loadTestId: '1' } });
+    expect(prisma.loadExecution.deleteMany).toHaveBeenCalledWith({
+      where: { loadTestId: '1' },
+    });
     expect(prisma.loadTest.delete).toHaveBeenCalledWith({ where: { id: '1' } });
   });
 });

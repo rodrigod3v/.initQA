@@ -1,7 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { WebScenarioService } from './web-scenario.service';
 import { WebExecutionService } from './execution/web-execution.service';
-import { CreateWebScenarioDto, UpdateWebScenarioDto } from './dto/web-scenario.dto';
+import { WebScenarioRecorderService } from './web-scenario-recorder.service';
+import {
+  CreateWebScenarioDto,
+  UpdateWebScenarioDto,
+} from './dto/web-scenario.dto';
 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -14,7 +28,8 @@ export class WebScenarioController {
   constructor(
     private readonly webScenarioService: WebScenarioService,
     private readonly webExecutionService: WebExecutionService,
-  ) { }
+    private readonly recorderService: WebScenarioRecorderService,
+  ) {}
 
   @ApiOperation({ summary: 'Create a new web scenario' })
   @Post()
@@ -44,7 +59,10 @@ export class WebScenarioController {
 
   @ApiOperation({ summary: 'Execute a web scenario' })
   @Post(':id/execute')
-  execute(@Param('id') id: string, @Query('environmentId') environmentId?: string) {
+  execute(
+    @Param('id') id: string,
+    @Query('environmentId') environmentId?: string,
+  ) {
     return this.webExecutionService.execute(id, environmentId);
   }
 
@@ -58,8 +76,18 @@ export class WebScenarioController {
     return this.webExecutionService.getProjectHistory(projectId);
   }
 
-  @Delete(':id/history')
-  clearHistory(@Param('id') id: string) {
+  @Post(':id/history')
+  async clearHistory(@Param('id') id: string) {
     return this.webExecutionService.clearHistory(id);
+  }
+
+  @Post('recorder/start')
+  async startRecording(@Body() body: { url: string; sessionId: string }) {
+    return this.recorderService.startRecording(body.url, body.sessionId);
+  }
+
+  @Post('recorder/stop/:sessionId')
+  async stopRecording(@Param('sessionId') sessionId: string) {
+    return this.recorderService.stopRecording(sessionId);
   }
 }

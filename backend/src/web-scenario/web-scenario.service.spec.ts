@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebScenarioService } from './web-scenario.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -42,7 +43,7 @@ describe('WebScenarioService', () => {
 
     const result = await service.create(dto);
     expect(result).toEqual(expected);
-    expect(prisma.webScenario.create).toHaveBeenCalled();
+    expect(prisma.webScenario.create as jest.Mock).toHaveBeenCalled();
   });
 
   it('findAll', async () => {
@@ -51,7 +52,9 @@ describe('WebScenarioService', () => {
 
     const result = await service.findAll('1');
     expect(result).toEqual(expected);
-    expect(prisma.webScenario.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { projectId: '1' } }));
+    expect(prisma.webScenario.findMany as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { projectId: '1' } }),
+    );
   });
 
   it('delete', async () => {
@@ -59,7 +62,11 @@ describe('WebScenarioService', () => {
     (prisma.webScenario.delete as jest.Mock).mockResolvedValue({ id: '1' });
 
     await service.remove('1');
-    expect(prisma.webExecution.deleteMany).toHaveBeenCalledWith({ where: { scenarioId: '1' } });
-    expect(prisma.webScenario.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+    expect(prisma.webExecution.deleteMany as jest.Mock).toHaveBeenCalledWith({
+      where: { scenarioId: '1' },
+    });
+    expect(prisma.webScenario.delete as jest.Mock).toHaveBeenCalledWith({
+      where: { id: '1' },
+    });
   });
 });

@@ -1,9 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ExecutionService } from '../request/execution/execution.service';
+
+export interface RunResult {
+  id: string;
+  name: string;
+  status: number;
+  duration: number;
+  success: boolean;
+}
 
 @Injectable()
 export class ProjectService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private executionService: ExecutionService,
+  ) {}
 
   async create(data: { name: string }) {
     return this.prisma.project.create({
@@ -29,7 +41,6 @@ export class ProjectService {
   }
 
   async remove(id: string) {
-    // Delete all linked requests and environments first (Prisma might handle this via cascades if configured, but let's be safe if not)
     await this.prisma.request.deleteMany({ where: { projectId: id } });
     await this.prisma.environment.deleteMany({ where: { projectId: id } });
     return this.prisma.project.delete({
@@ -43,7 +54,10 @@ export class ProjectService {
     });
   }
 
-  async createEnvironment(projectId: string, data: any) {
+  async createEnvironment(
+    projectId: string,
+    data: { name: string; variables?: any },
+  ) {
     return this.prisma.environment.create({
       data: {
         ...data,
@@ -56,5 +70,35 @@ export class ProjectService {
     return this.prisma.environment.delete({
       where: { id },
     });
+  }
+
+  async runAll(projectId: string, environmentId?: string) {
+    const requests = await this.prisma.request.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const results: RunResult[] = [];
+    for (const request of requests) {
+      const result = await this.executionService.execute(
+        request.id,
+        environmentId,
+      );
+      results.push({
+        id: request.id,
+        name: request.name ?? '',
+        status: result.status,
+        duration: result.duration,
+        success: result.status >= 200 && result.status < 300,
+      });
+    }
+
+    return {
+      projectId,
+      total: requests.length,
+      passed: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
   }
 }

@@ -3,12 +3,26 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { chromium } from 'playwright';
 import { UtilsService } from '../../utils/utils.service';
 
+interface StepMetadata {
+  text?: string;
+  placeholder?: string | null;
+  role?: string;
+  name?: string;
+}
+
+interface ScenarioStep {
+  type: string;
+  selector?: string;
+  value?: string;
+  metadata?: StepMetadata;
+}
+
 @Injectable()
 export class WebExecutionService {
   constructor(
     private prisma: PrismaService,
     private utilsService: UtilsService,
-  ) { }
+  ) {}
 
   async execute(scenarioId: string, environmentId?: string) {
     const scenario = await this.prisma.webScenario.findUnique({
@@ -17,82 +31,168 @@ export class WebExecutionService {
 
     if (!scenario) throw new NotFoundException('Scenario not found');
 
-    let variables = {};
+    let variables: Record<string, unknown> = {};
     if (environmentId) {
       const environment = await this.prisma.environment.findUnique({
         where: { id: environmentId },
       });
-      variables = (environment?.variables as any) || {};
+      variables = (environment?.variables as Record<string, unknown>) || {};
     }
 
     const startTime = Date.now();
-    const logs: any[] = [];
+    const logs: Record<string, unknown>[] = [];
     let status = 'SUCCESS';
     let screenshotPath: string | null = null;
 
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
-      userAgent: 'initQA-Web-Agent/1.0'
+      userAgent: 'initQA-Web-Agent/1.0',
     });
     const page = await context.newPage();
 
+    let scenarioUpdated = false;
+    let updatedSteps: ScenarioStep[] = [];
+
     try {
-      const steps = (scenario.steps as any[]) || [];
-      
-      let stepIndex = 1;
+      const steps: ScenarioStep[] =
+        (scenario.steps as unknown as ScenarioStep[]) || [];
+      updatedSteps = [...steps];
+
+      let stepIndex = 0;
       for (const step of steps) {
         const stepStart = Date.now();
-        const currentStepIdx = stepIndex++;
+        const currentStepIdx = stepIndex + 1;
         try {
           // Replace variables in selector and value
-          const selector = this.utilsService.replaceVariables(step.selector, variables);
-          const value = this.utilsService.replaceVariables(step.value, variables);
+          const selector = this.utilsService.replaceVariables(
+            step.selector,
+            variables,
+          ) as string;
+          const value = this.utilsService.replaceVariables(
+            step.value,
+            variables,
+          ) as string;
 
-          logs.push({ 
-            step: `STEP_${currentStepIdx}: ${step.type}`, 
-            info: `Initializing ${step.type}...`, 
-            timestamp: new Date().toISOString() 
+          logs.push({
+            step: `STEP_${currentStepIdx}: ${step.type}`,
+            info: `Attempting ${step.type} on ${selector || 'page'}...`,
+            timestamp: new Date().toISOString(),
           });
-          
+
+          let elementFoundByHealing = false;
+          let effectiveSelector = selector;
+
+          // --- SELF-HEALING LOGIC ---
+          if (
+            selector &&
+            ![
+              'GOTO',
+              'RELOAD',
+              'WAIT',
+              'ASSERT_URL',
+              'ASSERT_TITLE',
+              'KEY_PRESS',
+            ].includes(step.type)
+          ) {
+            try {
+              // Try to wait for the original selector briefly
+              await page.waitForSelector(selector, {
+                state: 'attached',
+                timeout: 2000,
+              });
+            } catch (err) {
+              // Primary selector failed. Try Self-Healing if metadata exists.
+              if (step.metadata) {
+                logs.push({
+                  step: `STEP_${currentStepIdx}: SELF_HEALING`,
+                  info: `Primary selector failed. Attempting recovery using metadata...`,
+                  timestamp: new Date().toISOString(),
+                });
+
+                const { text, placeholder, role, name } = step.metadata;
+                const healingSelectors: string[] = [];
+                if (role && name)
+                  healingSelectors.push(`role=${role}[name="${name}"]`);
+                if (text) healingSelectors.push(`text="${text}"`);
+                if (placeholder)
+                  healingSelectors.push(`placeholder="${placeholder}"`);
+
+                for (const hSelector of healingSelectors) {
+                  try {
+                    await page.waitForSelector(hSelector, {
+                      state: 'visible',
+                      timeout: 2000,
+                    });
+                    effectiveSelector = hSelector;
+                    elementFoundByHealing = true;
+                    logs.push({
+                      step: `STEP_${currentStepIdx}: SELF_HEALING`,
+                      info: `Recovered element using: ${hSelector}`,
+                      status: 'HEALED',
+                      timestamp: new Date().toISOString(),
+                    });
+                    break;
+                  } catch {
+                    continue;
+                  }
+                }
+
+                if (!elementFoundByHealing) {
+                  throw new Error(
+                    `Primary selector and recovery attempts failed for: ${selector}`,
+                  );
+                }
+              } else {
+                throw err; // No metadata, rethrow original error
+              }
+            }
+          }
+
           switch (step.type) {
             case 'GOTO':
-              await page.goto(value, { waitUntil: 'load', timeout: 60000 });
+              await page.goto(value, {
+                waitUntil: 'load',
+                timeout: 60000,
+              });
               break;
             case 'CLICK':
-              await page.click(selector, { force: true });
+              await page.click(effectiveSelector, { force: true });
               break;
             case 'DOUBLE_CLICK':
-              await page.dblclick(selector, { force: true });
+              await page.dblclick(effectiveSelector, { force: true });
               break;
             case 'RIGHT_CLICK':
-              await page.click(selector, { button: 'right', force: true });
+              await page.click(effectiveSelector, {
+                button: 'right',
+                force: true,
+              });
               break;
             case 'FILL':
-              await page.fill(selector, value);
+              await page.fill(effectiveSelector, value);
               break;
             case 'TYPE':
-              await page.type(selector, value);
+              await page.type(effectiveSelector, value);
               break;
             case 'KEY_PRESS':
               await page.keyboard.press(value);
               break;
             case 'HOVER':
-              await page.hover(selector);
+              await page.hover(effectiveSelector);
               break;
             case 'SELECT':
-              await page.selectOption(selector, value);
+              await page.selectOption(effectiveSelector, value);
               break;
             case 'CHECK':
-              await page.check(selector, { force: true });
+              await page.check(effectiveSelector, { force: true });
               break;
             case 'UNCHECK':
-              await page.uncheck(selector, { force: true });
+              await page.uncheck(effectiveSelector, { force: true });
               break;
             case 'SUBMIT':
               // Either click a submit button or press Enter in an input
-              if (selector) {
-                await page.click(selector);
+              if (effectiveSelector) {
+                await page.click(effectiveSelector);
               } else {
                 await page.keyboard.press('Enter');
               }
@@ -102,61 +202,125 @@ export class WebExecutionService {
               await page.reload({ waitUntil: 'load' });
               break;
             case 'ASSERT_VISIBLE':
-              await page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
+              await page.waitForSelector(effectiveSelector, {
+                state: 'visible',
+                timeout: 5000,
+              });
               break;
             case 'ASSERT_HIDDEN':
-              await page.waitForSelector(selector, { state: 'hidden', timeout: 5000 });
+              await page.waitForSelector(effectiveSelector, {
+                state: 'hidden',
+                timeout: 5000,
+              });
               break;
-            case 'ASSERT_TEXT':
-              const text = await page.textContent(selector);
-              if (!text?.includes(value)) {
-                throw new Error(`Text "${value}" not found in ${selector}`);
+            case 'ASSERT_TEXT': {
+              const textContent = await page.textContent(effectiveSelector);
+              if (!textContent?.includes(value)) {
+                throw new Error(
+                  `Text "${value}" not found in ${effectiveSelector}`,
+                );
               }
               break;
-            case 'ASSERT_VALUE':
-              const val = await page.inputValue(selector);
-              if (val !== value) {
-                throw new Error(`Value "${val}" does not match expected "${value}" in ${selector}`);
+            }
+            case 'ASSERT_VALUE': {
+              const inputVal = await page.inputValue(effectiveSelector);
+              if (inputVal !== value) {
+                throw new Error(
+                  `Value "${inputVal}" does not match expected "${value}" in ${effectiveSelector}`,
+                );
               }
               break;
-            case 'ASSERT_URL':
+            }
+            case 'ASSERT_URL': {
               const currentUrl = page.url();
               if (!currentUrl.includes(value)) {
-                throw new Error(`URL "${currentUrl}" does not include "${value}"`);
+                throw new Error(
+                  `URL "${currentUrl}" does not include "${value}"`,
+                );
               }
               break;
-            case 'ASSERT_TITLE':
-              const title = await page.title();
-              if (!title.includes(value)) {
-                throw new Error(`Title "${title}" does not include "${value}"`);
+            }
+            case 'ASSERT_TITLE': {
+              const titleValue = await page.title();
+              if (!titleValue.includes(value)) {
+                throw new Error(
+                  `Title "${titleValue}" does not include "${value}"`,
+                );
               }
               break;
-            case 'WAIT':
+            }
+            case 'WAIT': {
               const ms = parseInt(value) || 2000;
               await page.waitForTimeout(ms);
               break;
+            }
             case 'SCROLL':
-              await page.locator(selector).scrollIntoViewIfNeeded();
+              await page.locator(effectiveSelector).scrollIntoViewIfNeeded();
               break;
             default:
-              logs.push({ step: step.type, error: 'Unknown step type', timestamp: new Date().toISOString() });
+              logs.push({
+                step: step.type,
+                error: 'Unknown step type',
+                timestamp: new Date().toISOString(),
+              });
           }
-          
-          logs.push({ 
-            step: `STEP_${currentStepIdx}: ${step.type}`, 
-            status: 'OK', 
-            duration: Date.now() - stepStart,
-            timestamp: new Date().toISOString() 
-          });
-        } catch (stepError) {
+
+          // --- LEARNING PHASE (Metadata Collection) ---
+          if (
+            effectiveSelector &&
+            ![
+              'GOTO',
+              'RELOAD',
+              'WAIT',
+              'ASSERT_URL',
+              'ASSERT_TITLE',
+              'KEY_PRESS',
+            ].includes(step.type)
+          ) {
+            try {
+              const element = page.locator(effectiveSelector).first();
+              const metadata = await element.evaluate((el) => {
+                const htmlEl = el as HTMLElement;
+                return {
+                  text: (htmlEl.innerText || htmlEl.textContent || '')
+                    .trim()
+                    .substring(0, 50),
+                  placeholder: htmlEl.getAttribute('placeholder'),
+                  role:
+                    htmlEl.getAttribute('role') || htmlEl.tagName.toLowerCase(),
+                  name:
+                    htmlEl.getAttribute('name') ||
+                    htmlEl.getAttribute('aria-label') ||
+                    (htmlEl.innerText || htmlEl.textContent || '')
+                      .trim()
+                      .substring(0, 30),
+                };
+              });
+
+              if (JSON.stringify(step.metadata) !== JSON.stringify(metadata)) {
+                updatedSteps[stepIndex] = { ...step, metadata };
+                scenarioUpdated = true;
+              }
+            } catch (learnErr: unknown) {
+              // Non-blocking
+              const message =
+                learnErr instanceof Error ? learnErr.message : String(learnErr);
+              console.warn('Learning failed for step', stepIndex, message);
+            }
+          }
+
+          break; // Stop scenario execution on first error
+        } catch (stepError: unknown) {
           status = 'FAILED';
-          logs.push({ 
-            step: `STEP_${currentStepIdx}: ${step.type}`, 
-            error: stepError.message, 
+          const message =
+            stepError instanceof Error ? stepError.message : String(stepError);
+          logs.push({
+            step: `STEP_${currentStepIdx}: ${step.type}`,
+            error: message,
             duration: Date.now() - stepStart,
-            timestamp: new Date().toISOString() 
+            timestamp: new Date().toISOString(),
           });
-          
+
           // Capture screenshot on failure
           try {
             const buffer = await page.screenshot();
@@ -164,13 +328,19 @@ export class WebExecutionService {
           } catch (ssErr) {
             console.error('Failed to capture failure screenshot', ssErr);
           }
-          
+
           break; // Stop scenario execution on first error
         }
+        stepIndex++;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       status = 'FAILED';
-      logs.push({ error: 'Global execution error', message: err.message, timestamp: new Date().toISOString() });
+      const message = err instanceof Error ? err.message : String(err);
+      logs.push({
+        error: 'Global execution error',
+        message: message,
+        timestamp: new Date().toISOString(),
+      });
     } finally {
       // Capture final screenshot if not already captured during failure
       if (!screenshotPath) {
@@ -182,16 +352,26 @@ export class WebExecutionService {
         }
       }
       await browser.close();
+
+      // If we learned new metadata, update the scenario
+      if (scenarioUpdated) {
+        await this.prisma.webScenario.update({
+          where: { id: scenario.id },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: { steps: updatedSteps as unknown as any },
+        });
+      }
     }
 
     const duration = Date.now() - startTime;
 
-    return this.prisma.webExecution.create({
+    await this.prisma.webExecution.create({
       data: {
         scenarioId: scenario.id,
         environmentId: environmentId || null,
         status,
         duration,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         logs: logs as any,
         screenshot: screenshotPath,
       },
@@ -208,13 +388,13 @@ export class WebExecutionService {
 
   async getProjectHistory(projectId: string) {
     return this.prisma.webExecution.findMany({
-      where: { 
-        scenario: { projectId } 
+      where: {
+        scenario: { projectId },
       },
       include: {
         scenario: {
-          select: { name: true }
-        }
+          select: { name: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: 50,

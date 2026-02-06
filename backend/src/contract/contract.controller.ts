@@ -1,7 +1,7 @@
 import { Controller, Post, Body, UseGuards, Param } from '@nestjs/common';
 import { ContractService } from './contract.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ParseContractDto, SyncContractDto } from './dto/contract.dto';
+import { SyncContractDto } from './dto/contract.dto';
 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -10,12 +10,12 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard)
 @Controller('contract')
 export class ContractController {
-  constructor(private contractService: ContractService) { }
+  constructor(private contractService: ContractService) {}
 
   @ApiOperation({ summary: 'Parse a Swagger/OpenAPI definition' })
   @Post('parse')
-  async parse(@Body() data: ParseContractDto) {
-    return this.contractService.parseSwagger(data.content);
+  parse(@Body('content') content: string) {
+    return this.contractService.parseSwagger(content);
   }
 
   @ApiOperation({ summary: 'Sync project requests with a Swagger definition' })

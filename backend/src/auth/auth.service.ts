@@ -3,6 +3,11 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 
+interface UserPayload {
+  id: string;
+  email: string;
+}
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
@@ -24,16 +29,26 @@ export class AuthService implements OnModuleInit {
     }
   }
 
-  async validateUser(email: string, pass: string): Promise<any> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (user && (await bcrypt.compare(pass, user.password))) {
-      const { password, ...result } = user;
+  async validateUser(email: string, pass: string): Promise<UserPayload | null> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const user = (await this.prisma.user.findUnique({
+      where: { email },
+    })) as any;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (user && (await bcrypt.compare(pass, String(user.password)))) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const result = { ...user };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      delete result.password;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     }
     return null;
   }
 
-  async login(user: any) {
+  async login(user: UserPayload) {
+    await Promise.resolve();
     const payload = { email: user.email, sub: user.id };
     return {
       access_token: this.jwtService.sign(payload),

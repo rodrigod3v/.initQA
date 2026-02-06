@@ -20,8 +20,9 @@ model Project {
   updatedAt    DateTime      @updatedAt
   environments Environment[]
   requests     Request[]
-  webScenarios WebScenario[]
-  loadTests    LoadTest[]
+  webScenarios   WebScenario[]
+  loadTests      LoadTest[]
+  symmetryChecks SymmetryCheck[]
 }
 
 model Environment {
@@ -40,6 +41,7 @@ model Request {
   id         String             @id @default(uuid())
   name       String?
   method     String
+  protocol   String             @default("REST")
   url        String
   headers    Json?
   body       Json?
@@ -48,6 +50,7 @@ model Request {
   project    Project            @relation(fields: [projectId], references: [id])
   executions             RequestExecution[]
   expectedResponseSchema Json?
+  symmetryChecks         SymmetryCheck[]
   createdAt              DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
 }
@@ -109,6 +112,24 @@ model LoadExecution {
   duration   Int
   results    Json?    // Serialized k6 JSON output
   createdAt  DateTime @default(now())
+}
+
+model SymmetryCheck {
+  id            String      @id @default(uuid())
+  name          String
+  requestId     String
+  request       Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sourceEnvId   String
+  targetEnvId   String
+  cron          String      // e.g. "0 * * * *" (hourly)
+  webhookUrl    String?     // Slack/Teams webhook
+  enabled       Boolean     @default(true)
+  lastResult    String?     // "SYNC", "DRIFT"
+  lastCheckedAt DateTime?
+  projectId     String
+  project       Project     @relation(fields: [projectId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model User {

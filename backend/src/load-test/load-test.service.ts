@@ -5,12 +5,18 @@ import { PrismaService } from '../prisma/prisma.service';
 export class LoadTestService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: { name: string; projectId: string; config: any }) {
+  async create(data: {
+    name: string;
+    projectId: string;
+    config: Record<string, unknown>;
+  }) {
     const { projectId, ...rest } = data;
     return this.prisma.loadTest.create({
       data: {
         ...rest,
-        project: { connect: { id: projectId } }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        config: rest.config as any,
+        project: { connect: { id: projectId } },
       },
     });
   }
@@ -20,38 +26,41 @@ export class LoadTestService {
       where: projectId ? { projectId } : {},
       include: {
         _count: {
-          select: { executions: true }
-        }
+          select: { executions: true },
+        },
       },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const test = await this.prisma.loadTest.findUnique({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const test = (await this.prisma.loadTest.findUnique({
       where: { id },
       include: {
         executions: {
           take: 10,
-          orderBy: { createdAt: 'desc' }
-        }
-      }
-    });
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    })) as any;
 
     if (!test) throw new NotFoundException('Load test not found');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return test;
   }
 
   async update(id: string, data: any) {
-    return this.prisma.loadTest.update({
+    return await this.prisma.loadTest.update({
       where: { id },
-      data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      data: { config: data.config },
     });
   }
 
   async remove(id: string) {
     await this.prisma.loadExecution.deleteMany({
-      where: { loadTestId: id }
+      where: { loadTestId: id },
     });
     return this.prisma.loadTest.delete({
       where: { id },

@@ -41,7 +41,11 @@ describe('AuthService', () => {
     it('should return user data if valid', async () => {
       const password = 'password';
       const hashedPassword = await bcrypt.hash(password, 10);
-      const user = { id: '1', email: 'test@test.com', password: hashedPassword };
+      const user = {
+        id: '1',
+        email: 'test@test.com',
+        password: hashedPassword,
+      };
 
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
 
@@ -50,27 +54,37 @@ describe('AuthService', () => {
     });
 
     it('should return null if invalid password', async () => {
-      const user = { id: '1', email: 'test@test.com', password: 'hashed_password' };
+      const user = {
+        id: '1',
+        email: 'test@test.com',
+        password: 'hashed_password',
+      };
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
 
-      // We need to mock bcrypt.compare or rely on the real one. 
+      // We need to mock bcrypt.compare or rely on the real one.
       // Since we are using real bcrypt in the service, let's rely on it failing the match.
-      const result = await service.validateUser('test@test.com', 'wrong_password');
+      const result = await service.validateUser(
+        'test@test.com',
+        'wrong_password',
+      );
       expect(result).toBeNull();
     });
 
     it('should return null if user not found', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      const result = await service.validateUser('notfound@test.com', 'password');
+      const result = await service.validateUser(
+        'notfound@test.com',
+        'password',
+      );
       expect(result).toBeNull();
     });
   });
 
   describe('login', () => {
     it('should return access token', async () => {
-        const user = { email: 'test@test.com', id: '1' };
-        const result = await service.login(user);
-        expect(result).toEqual({ access_token: 'mock_token' });
+      const user = { email: 'test@test.com', id: '1' };
+      const result = await service.login(user);
+      expect(result).toEqual({ access_token: 'mock_token' });
     });
   });
 });

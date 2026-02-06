@@ -32,14 +32,20 @@ describe('UtilsService', () => {
   describe('generateInvalidPayload', () => {
     it('should mutate payload', () => {
       const payload = { name: 'test', age: 30 };
-      const mutated = service.generateInvalidPayload(payload);
+      const mutated = service.generateInvalidPayload(payload) as Record<
+        string,
+        unknown
+      >;
       expect(mutated).not.toEqual(payload);
     });
 
     it('should return same if payload is empty', () => {
-        const payload = {};
-        const mutated = service.generateInvalidPayload(payload);
-        expect(mutated).toEqual(payload);
+      const payload = {};
+      const mutated = service.generateInvalidPayload(payload) as Record<
+        string,
+        unknown
+      >;
+      expect(mutated).toEqual(payload);
     });
   });
 
@@ -47,22 +53,28 @@ describe('UtilsService', () => {
     it('should replace user variables', () => {
       const target = { url: 'http://{{host}}/api' };
       const variables = { host: 'localhost' };
-      const result = service.replaceVariables(target, variables);
+      const result = service.replaceVariables(target, variables) as Record<
+        string,
+        unknown
+      >;
       expect(result).toEqual({ url: 'http://localhost/api' });
     });
 
     it('should replace system variables', () => {
       const target = { cpf: '{{$randomCPF}}' };
-      const result = service.replaceVariables(target, {});
+      const result = service.replaceVariables(target, {}) as Record<
+        string,
+        string
+      >;
       expect(result.cpf).toMatch(/^\d{11}$/);
       expect(result.cpf).not.toContain('randomCPF');
     });
 
     it('should handle string target', () => {
-        const target = 'Hello {{name}}';
-        const variables = { name: 'World' };
-        const result = service.replaceVariables(target, variables);
-        expect(result).toBe('Hello World');
+      const target = 'Hello {{name}}';
+      const variables = { name: 'World' };
+      const result = service.replaceVariables(target, variables) as string;
+      expect(result).toBe('Hello World');
     });
   });
 });

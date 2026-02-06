@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -10,7 +18,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectController {
-  constructor(private readonly projectService: ProjectService) { }
+  constructor(private readonly projectService: ProjectService) {}
 
   @ApiOperation({ summary: 'Create a new project' })
   @Post()
@@ -39,12 +47,24 @@ export class ProjectController {
   }
 
   @Post(':id/environments')
-  createEnvironment(@Param('id') projectId: string, @Body() data: CreateEnvironmentDto) {
+  createEnvironment(
+    @Param('id') projectId: string,
+    @Body() data: CreateEnvironmentDto,
+  ) {
     return this.projectService.createEnvironment(projectId, data);
   }
 
   @Delete('environments/:id')
   removeEnvironment(@Param('id') id: string) {
     return this.projectService.removeEnvironment(id);
+  }
+
+  @ApiOperation({ summary: 'Run all requests in a project' })
+  @Post(':id/run-all')
+  runAll(
+    @Param('id') id: string,
+    @Body('environmentId') environmentId?: string,
+  ) {
+    return this.projectService.runAll(id, environmentId);
   }
 }

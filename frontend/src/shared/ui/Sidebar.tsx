@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Send, GitCompare, LogOut, Terminal, Layers, Monitor, Zap, Home, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Send, GitCompare, LogOut, Terminal, Layers, Monitor, Zap, Home, ChevronLeft, ChevronRight, Lock, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useProjectStore } from '@/stores/projectStore';
 
@@ -48,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
             items: [
                 { icon: Home, label: 'Home', path: '/' },
                 { icon: Layers, label: 'Projects', path: '/projects' },
+                { icon: BarChart3, label: 'Executive', path: '/executive', requiresProject: true },
             ]
         },
         {
@@ -80,6 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
     const getDynamicPath = (item: NavItem) => {
         if (!activeProjectId) return item.path;
         if (item.path === '/requests') return `/projects/${activeProjectId}/requests`;
+        if (item.path === '/executive') return `/projects/${activeProjectId}/executive`;
         if (item.path === '/automation') return `/projects/${activeProjectId}/web`;
         if (item.path === '/performance') return `/projects/${activeProjectId}/load`;
         // Comparator might not be strictly project-scoped in terms of URL, but let's keep it simple

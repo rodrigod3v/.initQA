@@ -1,5 +1,6 @@
 export class CompareRequestsDto {
-    requestId: string;
-    leftEnvId: string;
-    rightEnvId: string;
+  requestId: string;
+  leftEnvId: string;
+  rightEnvId: string;
+  maskingKeys?: string[];
 }

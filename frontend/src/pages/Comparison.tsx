@@ -8,7 +8,11 @@ import {
     Loader2,
     AlertTriangle,
     CheckCircle2,
-    Terminal
+    Terminal,
+    Shield,
+    Clock,
+    Hash,
+    Settings2
 } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
@@ -42,6 +46,14 @@ const Comparison: React.FC = () => {
     const [result, setResult] = useState<ComparisonResult | null>(null);
     const [loading, setLoading] = useState(true);
     const [comparing, setComparing] = useState(false);
+    const [maskingKeys, setMaskingKeys] = useState<string[]>(['token', 'password', 'cpf', 'email']);
+    const [showSettings, setShowSettings] = useState(false);
+
+    const toggleMaskingKey = (key: string) => {
+        setMaskingKeys(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+        );
+    };
 
     useEffect(() => {
         if (projectId) {
@@ -88,7 +100,8 @@ const Comparison: React.FC = () => {
             const response = await api.post('/requests/compare', {
                 requestId: selectedRequestId,
                 leftEnvId,
-                rightEnvId
+                rightEnvId,
+                maskingKeys
             });
             setResult(response.data);
         } catch (err) {
@@ -179,8 +192,88 @@ const Comparison: React.FC = () => {
                         {comparing ? <Loader2 className="animate-spin mr-2" size={14} /> : <GitCompare className="mr-2" size={14} />}
                         RUN_COMPARISON
                     </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() => setShowSettings(!showSettings)}
+                        className={`p-0 w-10 h-10 border-main ${showSettings ? 'bg-accent/20 text-accent' : ''}`}
+                    >
+                        <Settings2 size={16} />
+                    </Button>
                 </div>
             </Card>
+
+            {/* Symmetry Settings Panel */}
+            {showSettings && (
+                <Card className="p-4 border-accent/30 bg-accent/5 animate-in slide-in-from-top duration-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <Shield size={14} className="text-secondary-text" />
+                                <h3 className="text-[10px] font-mono font-bold text-primary-text uppercase tracking-widest">SENSITIVE_DATA_MASKING</h3>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {['token', 'password', 'cpf', 'email', 'auth', 'secret'].map(key => (
+                                    <button
+                                        key={key}
+                                        onClick={() => toggleMaskingKey(key)}
+                                        className={`px-3 py-1 border-sharp border font-mono text-[9px] uppercase transition-all
+                                            ${maskingKeys.includes(key)
+                                                ? 'bg-accent/20 border-accent text-accent'
+                                                : 'bg-deep border-main text-secondary-text hover:border-accent/50'}`}
+                                    >
+                                        {key}
+                                    </button>
+                                ))}
+                                <div className="flex items-center bg-deep border border-main px-2 ml-2">
+                                    <Hash size={10} className="text-secondary-text mr-1" />
+                                    <input
+                                        type="text"
+                                        placeholder="ADD_CUSTOM_KEY..."
+                                        className="bg-transparent border-none outline-none text-[9px] font-mono text-primary-text w-24 h-6"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                const val = e.currentTarget.value.trim().toLowerCase();
+                                                if (val && !maskingKeys.includes(val)) toggleMaskingKey(val);
+                                                e.currentTarget.value = '';
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[8px] text-secondary-text mt-3 font-mono opacity-60">
+                                MASKED_FIELDS_WILL_BE_TREATED_AS_PLACEHOLDERS_TO_FOCUS_ON_STRUCTURAL_SYMMETRY.
+                            </p>
+                        </div>
+
+                        <div className="border-l border-main/30 pl-8">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Clock size={14} className="text-secondary-text" />
+                                <h3 className="text-[10px] font-mono font-bold text-primary-text uppercase tracking-widest">DRIFT_DETECTION_SCHEDULER</h3>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono text-secondary-text uppercase">Health_Check_Integrity</span>
+                                    <div className="flex items-center gap-3">
+                                        <select className="bg-deep border-sharp border-main px-3 py-1 font-mono text-[9px] text-primary-text focus:outline-none">
+                                            <option>EVERY_HOUR (0 * * * *)</option>
+                                            <option>EVERY_15_MIN (*/15 * * * *)</option>
+                                            <option>DAILY (0 0 * * *)</option>
+                                        </select>
+                                        <Button glow size="sm" className="text-[8px] h-7 px-4">SAVE_JOB</Button>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 p-2 bg-rose-500/10 border border-rose-500/20">
+                                    <AlertTriangle size={12} className="text-rose-500" />
+                                    <span className="text-[8px] font-mono text-rose-500 uppercase tracking-tighter">
+                                        NOTIFICATIONS_OFF: CONFIGURE WEBHOOK_URL IN PROJECT SETTINGS FOR SLACK/TEAMS ALERTS.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+            )}
 
             {/* Comparison Grid */}
             <div className="flex-1 flex flex-col lg:grid lg:grid-cols-2 gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">

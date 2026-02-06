@@ -10,7 +10,7 @@ export class WebScenarioService {
     return this.prisma.webScenario.create({
       data: {
         ...rest,
-        project: { connect: { id: projectId } }
+        project: { connect: { id: projectId } },
       },
     });
   }
@@ -20,10 +20,10 @@ export class WebScenarioService {
       where: projectId ? { projectId } : {},
       include: {
         _count: {
-          select: { executions: true }
-        }
+          select: { executions: true },
+        },
       },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
@@ -33,26 +33,30 @@ export class WebScenarioService {
       include: {
         executions: {
           take: 10,
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!scenario) throw new NotFoundException('Scenario not found');
     return scenario;
   }
 
-  async update(id: string, data: any) {
+  async update(
+    id: string,
+    data: Partial<{ name: string; steps: Record<string, unknown>[] }>,
+  ) {
     return this.prisma.webScenario.update({
       where: { id },
-      data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: data as any,
     });
   }
 
   async remove(id: string) {
     // Delete executions first if not using cascade
     await this.prisma.webExecution.deleteMany({
-      where: { scenarioId: id }
+      where: { scenarioId: id },
     });
     return this.prisma.webScenario.delete({
       where: { id },

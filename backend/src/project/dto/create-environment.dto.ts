@@ -1,4 +1,4 @@
 export class CreateEnvironmentDto {
-    name: string;
-    variables?: any;
+  name: string;
+  variables?: any;
 }

@@ -28,7 +28,6 @@ export const HttpRequestPage: React.FC = () => {
     const selectRequest = useRequestStore(state => state.selectRequest);
     const addRequest = useRequestStore(state => state.addRequest);
     const updateLocalRequest = useRequestStore(state => state.updateLocalRequest);
-    const saveRequest = useRequestStore(state => state.saveRequest);
     const deleteRequest = useRequestStore(state => state.deleteRequest);
     const executeRequest = useRequestStore(state => state.executeRequest);
     const batchExecute = useRequestStore(state => state.batchExecute);
@@ -104,16 +103,16 @@ export const HttpRequestPage: React.FC = () => {
         }
     };
 
-    const handleExecute = async () => {
+    const handleExecute = React.useCallback(async () => {
         if (selectedRequest) {
             await executeRequest(selectedRequest.id, selectedEnvId || undefined);
         }
-    };
+    }, [selectedRequest, executeRequest, selectedEnvId]);
 
-    const updateRequestField = (field: keyof RequestModel, value: any) => {
+    const updateRequestField = React.useCallback((field: keyof RequestModel, value: any) => {
         if (!selectedRequest) return;
         updateLocalRequest(selectedRequest.id, { [field]: value });
-    };
+    }, [selectedRequest, updateLocalRequest]);
 
     const handleDelete = async () => {
         if (selectedRequest) {
@@ -127,6 +126,53 @@ export const HttpRequestPage: React.FC = () => {
         }
     };
 
+    const handleMagicAssert = React.useCallback(() => {
+        if (!lastResult?.response?.data || !selectedRequest) return;
+
+        let script = selectedRequest.testScript || '';
+        if (script && !script.endsWith('\n')) script += '\n';
+
+        const data = lastResult.response.data;
+
+        // Basic Status Assertion
+        if (!script.includes(`pm.response.to.have.status(${lastResult.status})`)) {
+            script += `pm.test("Status code is ${lastResult.status}", () => {\n    pm.response.to.have.status(${lastResult.status});\n});\n\n`;
+        }
+
+        // Schema-based assertions (simplified)
+        const generateExpects = (obj: any, path = 'pm.response.json()', depth = 0) => {
+            if (depth > 2) return ''; // Limit depth
+            let lines = '';
+            if (Array.isArray(obj)) {
+                lines += `pm.test("${path} is an array", () => {\n    pm.expect(${path}).to.be.an('array');\n});\n`;
+                if (obj.length > 0) {
+                    lines += generateExpects(obj[0], `${path}[0]`, depth + 1);
+                }
+            } else if (typeof obj === 'object' && obj !== null) {
+                Object.keys(obj).slice(0, 5).forEach(key => {
+                    const val = obj[key];
+                    const type = Array.isArray(val) ? 'array' : typeof val;
+                    lines += `pm.test("${key} has correct type", () => {\n    pm.expect(${path}).to.have.property('${key}');\n    pm.expect(${path}.${key}).to.be.a('${type}');\n});\n`;
+                });
+            }
+            return lines;
+        };
+
+        script += generateExpects(data);
+        updateRequestField('testScript', script);
+    }, [lastResult, selectedRequest, updateRequestField]);
+
+    const handleMagicChain = React.useCallback((path: string, _value: any) => {
+        if (!selectedRequest) return;
+        let script = selectedRequest.testScript || '';
+        if (script && !script.endsWith('\n')) script += '\n';
+
+        const varName = path.split('.').pop() || 'extracted_var';
+        script += `// Auto-chained variable extraction\npm.environment.set("${varName}", pm.response.json().${path});\n`;
+
+        updateRequestField('testScript', script);
+    }, [selectedRequest, updateRequestField]);
+
     return (
         <HttpRequestView
             requests={requests}
@@ -138,7 +184,6 @@ export const HttpRequestPage: React.FC = () => {
             isRunningSuite={batchExecuting}
             testResult={lastResult}
             projectHistory={projectHistory}
-
             // New Props for full functionality
             projectId={projectId}
             projects={projects}
@@ -156,13 +201,14 @@ export const HttpRequestPage: React.FC = () => {
                 setSelectedEnvId(resp.data.id);
             }}
             syncStatus={syncStatus}
-            onSave={async () => { if (selectedRequest) await saveRequest(selectedRequest.id); }}
             onDelete={handleDelete}
             onUpdateRequest={updateRequestField}
             onCreateRequest={handleCreateRequest}
             onDeleteRequest={deleteRequest}
             onClearHistory={handleClearHistory}
             onViewHistory={useRequestStore.getState().viewExecution}
+            onMagicAssert={handleMagicAssert}
+            onMagicChain={handleMagicChain}
         />
     );
 };

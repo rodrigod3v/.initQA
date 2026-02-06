@@ -27,7 +27,7 @@ export class RequestController {
     private readonly requestService: RequestService,
     private readonly executionService: ExecutionService,
     private readonly comparisonService: ComparisonService,
-  ) { }
+  ) {}
 
   @ApiOperation({ summary: 'Create a new request' })
   @Post()
@@ -50,6 +50,7 @@ export class RequestController {
       data.requestId,
       data.leftEnvId,
       data.rightEnvId,
+      data.maskingKeys,
     );
   }
 
