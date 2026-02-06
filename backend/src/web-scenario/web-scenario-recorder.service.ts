@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { chromium, BrowserContext, Page } from 'playwright';
 
-interface RecordedEvent {
+export interface RecordedEvent {
   type: string;
   selector: string;
   value?: string;
