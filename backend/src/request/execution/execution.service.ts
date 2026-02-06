@@ -10,7 +10,7 @@ export class ExecutionService {
     private prisma: PrismaService,
     private contractService: ContractService,
     private utilsService: UtilsService,
-  ) {}
+  ) { }
 
   async execute(requestId: string, environmentId?: string) {
     const request = await this.prisma.request.findUnique({
@@ -22,11 +22,16 @@ export class ExecutionService {
     }
 
     let variables = {};
+    let validEnvironmentId: string | null = null;
+
     if (environmentId) {
       const environment = await this.prisma.environment.findUnique({
         where: { id: environmentId },
       });
-      variables = (environment?.variables as any) || {};
+      if (environment) {
+        validEnvironmentId = environment.id;
+        variables = (environment.variables as any) || {};
+      }
     }
 
     // Replace placeholders in URL, headers, and body
@@ -55,7 +60,7 @@ export class ExecutionService {
       attempts++;
       try {
         console.log(`[EXECUTION] [${request.method}] Attempt ${attempts}/${maxAttempts} for ${url}`);
-        
+
         response = await axios({
           method: request.method,
           url,
@@ -64,18 +69,18 @@ export class ExecutionService {
           timeout: 30000, // 30 seconds timeout
           validateStatus: () => true, // Capture all status codes
         });
-        
+
         break;
       } catch (error) {
         const isNetworkError = error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT';
         if (attempts >= maxAttempts || !isNetworkError) {
           console.error(`[EXECUTION] [ERROR] ${url}: ${error.message}`);
-          
+
           const duration = Date.now() - startTime;
           return await this.prisma.requestExecution.create({
             data: {
               requestId: request.id,
-              environmentId: environmentId || null,
+              environmentId: validEnvironmentId,
               status: error.code === 'ETIMEDOUT' ? 408 : 500,
               duration,
               response: {
@@ -114,7 +119,7 @@ export class ExecutionService {
     const execution = await this.prisma.requestExecution.create({
       data: {
         requestId: request.id,
-        environmentId: environmentId || null,
+        environmentId: validEnvironmentId,
         status: response.status,
         duration,
         validationResult: validationResult as any,

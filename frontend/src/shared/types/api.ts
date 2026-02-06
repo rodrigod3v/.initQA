@@ -17,6 +17,12 @@ export interface ExecutionResult {
     response: {
         data: any;
         headers?: any;
+        error?: string;
+        message?: string;
+    };
+    request?: {
+        name: string;
+        method: string;
     };
     validationResult?: {
         valid: boolean;
@@ -36,9 +42,9 @@ export interface RequestModel {
     method: string;
     url: string;
     headers: any;
-    body: any;
-    testScript?: string;
-    expectedResponseSchema?: any;
+    body: any; // Data
+    testScript?: string; // Functional
+    expectedResponseSchema?: any; // Contract
     executions?: ExecutionResult[];
     projectId: string;
 }

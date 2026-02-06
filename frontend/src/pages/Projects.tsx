@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 // import api from '../services/api'; // Removed direct api access
 import { useProjectStore } from '@/stores/projectStore';
@@ -12,7 +12,12 @@ import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 
 const Projects: React.FC = () => {
     // Store Hooks
-    const { projects, isLoading: loading, fetchProjects, createProject, deleteProject } = useProjectStore(state => state);
+    // Store State - Optimized Subscriptions
+    const projects = useProjectStore(state => state.projects);
+    const loading = useProjectStore(state => state.isLoading);
+    const fetchProjects = useProjectStore(state => state.fetchProjects);
+    const createProject = useProjectStore(state => state.createProject);
+    const deleteProject = useProjectStore(state => state.deleteProject);
 
     // Local UI state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,7 +32,7 @@ const Projects: React.FC = () => {
         fetchProjects();
     }, []);
 
-    const handleCreateProject = async (e: React.FormEvent) => {
+    const handleCreateProject = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newProjectName.trim()) return;
 
@@ -41,9 +46,9 @@ const Projects: React.FC = () => {
         } finally {
             setCreating(false);
         }
-    };
+    }, [newProjectName, createProject]);
 
-    const confirmDelete = async () => {
+    const confirmDelete = useCallback(async () => {
         if (!projectToDelete) return;
         try {
             await deleteProject(projectToDelete.id);
@@ -52,12 +57,12 @@ const Projects: React.FC = () => {
         } catch (err) {
             console.error('Failed to delete project');
         }
-    };
+    }, [projectToDelete, deleteProject]);
 
-    const handleDeleteProject = (id: string, name: string) => {
+    const handleDeleteProject = useCallback((id: string, name: string) => {
         setProjectToDelete({ id, name });
         setIsConfirmOpen(true);
-    };
+    }, []);
 
     return (
         <div className="space-y-6">

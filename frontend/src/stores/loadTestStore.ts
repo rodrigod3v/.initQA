@@ -28,6 +28,8 @@ interface LoadTestState {
     createTest: (test: Partial<LoadTest>) => Promise<void>;
     updateTest: (id: string, updates: Partial<LoadTest>) => Promise<void>;
     executeTest: (id: string, envId?: string) => Promise<void>;
+    deleteTest: (id: string) => Promise<void>;
+    clearHistory: (id: string) => Promise<void>;
     selectTest: (test: LoadTest | null) => void;
     setLastExecution: (result: any) => void;
 }
@@ -82,7 +84,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
         }
     },
 
-    updateTest: async (id, updates) => {
+    updateTest: async (id: string, updates: Partial<LoadTest>) => {
         try {
             // Optimistic update
             set(state => ({
@@ -97,7 +99,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
         }
     },
 
-    executeTest: async (id, envId) => {
+    executeTest: async (id: string, envId?: string) => {
         set({ isExecuting: true, error: null });
         try {
             const response = await api.post(`/load-tests/${id}/execute${envId ? `?environmentId=${envId}` : ''}`);
@@ -105,6 +107,29 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
             get().fetchHistory(id);
         } catch (err) {
             set({ isExecuting: false, error: 'Execution failed' });
+        }
+    },
+
+    deleteTest: async (id) => {
+        try {
+            await api.delete(`/load-tests/${id}`);
+            set(state => ({
+                tests: state.tests.filter(t => t.id !== id),
+                selectedTest: state.selectedTest?.id === id ? (state.tests.find(t => t.id !== id) || null) : state.selectedTest
+            }));
+        } catch (err) {
+            set({ error: 'Failed to delete test' });
+        }
+    },
+
+    clearHistory: async (id) => {
+        try {
+            await api.delete(`/load-tests/${id}/history`);
+            if (get().selectedTest?.id === id) {
+                set({ history: [], lastResult: null });
+            }
+        } catch (err) {
+            console.error('Failed to clear history');
         }
     },
 

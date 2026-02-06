@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '@/shared/api';
+import { ProjectService } from '@/services/ProjectService';
 
 export interface Project {
     id: string;
@@ -28,8 +28,8 @@ export const useProjectStore = create<ProjectState>((set) => ({
     fetchProjects: async () => {
         set({ isLoading: true, error: null });
         try {
-            const response = await api.get('/projects');
-            set({ projects: response.data, isLoading: false });
+            const data = await ProjectService.findAll();
+            set({ projects: data, isLoading: false });
         } catch (error) {
             set({ error: 'Failed to fetch projects', isLoading: false });
         }
@@ -38,9 +38,9 @@ export const useProjectStore = create<ProjectState>((set) => ({
     createProject: async (name: string) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await api.post('/projects', { name });
+            const data = await ProjectService.create(name);
             set((state) => ({
-                projects: [...state.projects, response.data],
+                projects: [...state.projects, data],
                 isLoading: false
             }));
         } catch (error) {
@@ -51,7 +51,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
     deleteProject: async (id: string) => {
         try {
-            await api.delete(`/projects/${id}`);
+            await ProjectService.delete(id);
             set((state) => ({
                 projects: state.projects.filter(p => p.id !== id),
                 error: null

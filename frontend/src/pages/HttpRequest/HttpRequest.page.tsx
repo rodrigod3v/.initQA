@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { HttpRequestView } from './HttpRequest.view';
 import { useRequestStore } from '@/stores/requestStore';
+import { useProjectStore } from '@/stores/projectStore';
 import api from '@/shared/api';
 import type { RequestModel } from '@/shared/types/api';
 
@@ -14,23 +15,28 @@ export const HttpRequestPage: React.FC = () => {
     }
 
     // Store State
-    const {
-        requests,
-        selectedRequest,
-        executing,
-        lastResult,
-        syncStatus,
-        projectHistory,
-        fetchRequests,
-        selectRequest,
-        addRequest,
-        updateLocalRequest,
-        saveRequest,
-        deleteRequest,
-        executeRequest,
-        fetchProjectHistory,
-        clearProjectHistory
-    } = useRequestStore(state => state);
+    // Store State - Optimized Subscriptions
+    const requests = useRequestStore(state => state.requests);
+    const selectedRequest = useRequestStore(state => state.selectedRequest);
+    const executing = useRequestStore(state => state.executing);
+    const lastResult = useRequestStore(state => state.lastResult);
+    const syncStatus = useRequestStore(state => state.syncStatus);
+    const projectHistory = useRequestStore(state => state.projectHistory);
+    const batchExecuting = useRequestStore(state => state.batchExecuting);
+
+    const fetchRequests = useRequestStore(state => state.fetchRequests);
+    const selectRequest = useRequestStore(state => state.selectRequest);
+    const addRequest = useRequestStore(state => state.addRequest);
+    const updateLocalRequest = useRequestStore(state => state.updateLocalRequest);
+    const saveRequest = useRequestStore(state => state.saveRequest);
+    const deleteRequest = useRequestStore(state => state.deleteRequest);
+    const executeRequest = useRequestStore(state => state.executeRequest);
+    const batchExecute = useRequestStore(state => state.batchExecute);
+    const fetchProjectHistory = useRequestStore(state => state.fetchProjectHistory);
+    const clearProjectHistory = useRequestStore(state => state.clearProjectHistory);
+
+    // Project Store Sync
+    const selectProject = useProjectStore(state => state.selectProject);
 
     // Environment State
     const [environments, setEnvironments] = useState<any[]>([]);
@@ -43,9 +49,20 @@ export const HttpRequestPage: React.FC = () => {
             fetchRequests(projectId);
             fetchProjectHistory(projectId);
             fetchEnvironments(projectId);
+
+            // Sync selected project in store for Sidebar context
+            const syncProject = async () => {
+                try {
+                    const resp = await api.get(`/projects/${projectId}`);
+                    selectProject(resp.data);
+                } catch (err) {
+                    console.error('Failed to sync project store');
+                }
+            };
+            syncProject();
         }
         fetchProjects();
-    }, [projectId]);
+    }, [projectId, selectProject]);
 
     const fetchProjects = async () => {
         try {
@@ -116,9 +133,9 @@ export const HttpRequestPage: React.FC = () => {
             selectedRequest={selectedRequest}
             onSelectRequest={selectRequest}
             onRunTest={handleExecute}
-            onRunSuite={() => { }} // Batch execute not implemented in view yet
+            onRunSuite={() => batchExecute(projectId, selectedEnvId || undefined)}
             isRunningTest={executing}
-            isRunningSuite={false}
+            isRunningSuite={batchExecuting}
             testResult={lastResult}
             projectHistory={projectHistory}
 
@@ -143,7 +160,9 @@ export const HttpRequestPage: React.FC = () => {
             onDelete={handleDelete}
             onUpdateRequest={updateRequestField}
             onCreateRequest={handleCreateRequest}
+            onDeleteRequest={deleteRequest}
             onClearHistory={handleClearHistory}
+            onViewHistory={useRequestStore.getState().viewExecution}
         />
     );
 };

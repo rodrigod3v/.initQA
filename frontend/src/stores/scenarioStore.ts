@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '@/shared/api';
+import { ScenarioService } from '@/services/ScenarioService';
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -56,10 +56,10 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
     fetchScenarios: async (projectId: string) => {
         set({ isLoading: true });
         try {
-            const response = await api.get(`/web-scenarios?projectId=${projectId}`);
+            const data = await ScenarioService.findAll(projectId);
             set({
-                scenarios: response.data,
-                projectScenarios: response.data, // For now assuming simple filtering
+                scenarios: data,
+                projectScenarios: data, // For now assuming simple filtering
                 isLoading: false,
                 lastError: null
             });
@@ -114,7 +114,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
 
         set({ syncStatus: 'saving' });
         try {
-            await api.patch(`/web-scenarios/${id}`, {
+            await ScenarioService.update(id, {
                 name: scenario.name,
                 steps: scenario.steps
             });
@@ -137,7 +137,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
 
     deleteScenario: async (id) => {
         try {
-            await api.delete(`/web-scenarios/${id}`);
+            await ScenarioService.delete(id);
             set((state) => ({
                 scenarios: state.scenarios.filter(s => s.id !== id),
                 selectedScenario: state.selectedScenario?.id === id ? null : state.selectedScenario

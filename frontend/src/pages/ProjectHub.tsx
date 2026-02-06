@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
 import api from '@/shared/api';
+import { useProjectStore } from '@/stores/projectStore';
 
 interface ProjectStats {
     requests: number;
@@ -21,13 +22,13 @@ interface ProjectStats {
         id: string;
         type: 'request' | 'scenario' | 'loadtest';
         name: string;
-        timestamp: string;
     }>;
 }
 
 const ProjectHub: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate();
+    const { selectProject } = useProjectStore();
     const [project, setProject] = useState<any>(null);
     const [stats, setStats] = useState<ProjectStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -40,6 +41,7 @@ const ProjectHub: React.FC = () => {
                 // Fetch project details
                 const projectRes = await api.get(`/projects/${projectId}`);
                 setProject(projectRes.data);
+                selectProject(projectRes.data);
 
                 // Fetch stats
                 const [requestsRes, scenariosRes, loadTestsRes] = await Promise.all([
@@ -62,7 +64,7 @@ const ProjectHub: React.FC = () => {
         };
 
         fetchProjectData();
-    }, [projectId]);
+    }, [projectId, selectProject]);
 
     if (loading) {
         return (

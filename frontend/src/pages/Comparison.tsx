@@ -31,7 +31,9 @@ const Comparison: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
 
     // Store Hooks
-    const { requests, fetchRequests } = useRequestStore(state => state);
+    // Store State - Optimized Subscriptions
+    const requests = useRequestStore(state => state.requests);
+    const fetchRequests = useRequestStore(state => state.fetchRequests);
 
     const [environments, setEnvironments] = useState<Environment[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string>('');
@@ -122,8 +124,8 @@ const Comparison: React.FC = () => {
         <div className="flex flex-col h-[calc(100vh-80px)] gap-4 overflow-hidden">
             {/* Control Bar - Industrial Selector */}
             <Card className="p-2 border-main bg-surface/30">
-                <div className="flex items-stretch gap-4 h-10">
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 h-auto lg:h-10">
+                    <div className="flex items-center gap-2 h-10 lg:h-auto">
                         <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
                             <Activity size={14} />
                             SELECT_TEST
@@ -131,17 +133,17 @@ const Comparison: React.FC = () => {
                         <select
                             value={selectedRequestId}
                             onChange={(e) => setSelectedRequestId(e.target.value)}
-                            className="bg-deep border-sharp border-main px-4 font-mono text-xs text-primary-text focus:outline-none focus:border-accent/50 h-full"
+                            className="bg-deep border-sharp border-main px-4 font-mono text-xs text-primary-text focus:outline-none focus:border-accent/50 h-full flex-1 lg:flex-none lg:w-48"
                         >
                             {requests.map(r => <option key={r.id} value={r.id}>{(r.name || 'Unnamed').toUpperCase()}</option>)}
                         </select>
                     </div>
 
-                    <div className="h-full w-[1px] bg-main/30" />
+                    <div className="hidden lg:block h-full w-[1px] bg-main/30" />
 
-                    <div className="flex items-stretch gap-4 flex-1">
-                        <div className="flex items-center gap-2 flex-1">
-                            <span className="text-[9px] font-mono text-secondary-text uppercase">SOURCE_ENV</span>
+                    <div className="flex flex-col sm:flex-row items-stretch gap-4 flex-1">
+                        <div className="flex items-center gap-2 flex-1 h-10 lg:h-auto">
+                            <span className="text-[9px] font-mono text-secondary-text uppercase mb-1 sm:mb-0">SOURCE</span>
                             <select
                                 value={leftEnvId}
                                 onChange={(e) => setLeftEnvId(e.target.value)}
@@ -151,11 +153,11 @@ const Comparison: React.FC = () => {
                                 {environments.map(e => <option key={e.id} value={e.id}>{e.name.toUpperCase()}</option>)}
                             </select>
                         </div>
-                        <div className="flex items-center">
-                            <GitCompare size={16} className="text-accent opacity-50" />
+                        <div className="flex items-center justify-center py-2 sm:py-0">
+                            <GitCompare size={16} className="text-accent opacity-50 rotate-90 sm:rotate-0" />
                         </div>
-                        <div className="flex items-center gap-2 flex-1">
-                            <span className="text-[9px] font-mono text-secondary-text uppercase">TARGET_ENV</span>
+                        <div className="flex items-center gap-2 flex-1 h-10 lg:h-auto">
+                            <span className="text-[9px] font-mono text-secondary-text uppercase mb-1 sm:mb-0">TARGET</span>
                             <select
                                 value={rightEnvId}
                                 onChange={(e) => setRightEnvId(e.target.value)}
@@ -171,7 +173,7 @@ const Comparison: React.FC = () => {
                         onClick={handleCompare}
                         disabled={comparing || !selectedRequestId || !leftEnvId || !rightEnvId}
                         glow
-                        className="px-8 text-[10px] uppercase tracking-widest h-full"
+                        className="px-8 text-[10px] uppercase tracking-widest h-10 lg:h-full w-full lg:w-auto mt-2 lg:mt-0"
                         title="Compare Responses Between Environments"
                     >
                         {comparing ? <Loader2 className="animate-spin mr-2" size={14} /> : <GitCompare className="mr-2" size={14} />}
@@ -181,7 +183,7 @@ const Comparison: React.FC = () => {
             </Card>
 
             {/* Comparison Grid */}
-            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+            <div className="flex-1 flex flex-col lg:grid lg:grid-cols-2 gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">
                 {/* Result A */}
                 <div className="flex flex-col border-sharp border-main bg-surface/20 overflow-hidden">
                     <div className="h-10 bg-deep border-b border-main flex justify-between items-center px-4 shrink-0">
