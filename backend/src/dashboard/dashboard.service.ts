@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-interface HealthStats {
+export interface HealthStats {
   projects: number;
   requests: number;
   executions: number;
   successRate: number;
 }
 
-interface ExecutionResult {
+export interface ExecutionResult {
   id: string;
   type: string;
-  name: string;
+  name: string | null;
   projectName: string;
   method: string;
   status: number;
@@ -19,23 +19,23 @@ interface ExecutionResult {
   createdAt: Date;
 }
 
-interface EnvFailure {
+export interface EnvFailure {
   name: string;
   count: number;
 }
 
-interface ProjectStats {
+export interface ProjectStats {
   total: number;
   failed: number;
 }
 
-interface HistoryDay {
+export interface HistoryDay {
   date: string;
   passed: number;
   failed: number;
 }
 
-interface RawExecution {
+export interface RawExecution {
   createdAt: Date;
   status: number;
   environment?: { name: string } | null;
@@ -153,7 +153,7 @@ export class DashboardService {
 
     const instabilities: Record<
       string,
-      { name: string; total: number; failed: number }
+      { name: string | null; total: number; failed: number }
     > = {};
     recentRequestsExecs.forEach((exec) => {
       const rId = exec.request.id;
@@ -254,9 +254,7 @@ export class DashboardService {
       (e) => e.status >= 200 && e.status < 300,
     ).length;
     const currentHealth =
-      currentExecs.length > 0
-        ? (successCount / currentExecs.length) * 100
-        : 100;
+      currentExecs.length > 0 ? (successCount / currentExecs.length) * 100 : 100;
 
     const prevSuccessCount = previousExecs.filter(
       (e) => e.status >= 200 && e.status < 300,
@@ -267,24 +265,18 @@ export class DashboardService {
         : 100;
 
     // 2. Performance Analysis
-    const totalDuration =
-      (
-        await this.prisma.requestExecution.aggregate({
-          where: { request: { projectId }, createdAt: { gte: oneWeekAgo } },
-          _avg: { duration: true },
-        })
-      )._avg.duration || 0;
+    const totalDuration = (await this.prisma.requestExecution.aggregate({
+      where: { request: { projectId }, createdAt: { gte: oneWeekAgo } },
+      _avg: { duration: true },
+    }))._avg.duration || 0;
 
     // 3. Environment Gap
     const envPerformance: Record<string, { total: number; count: number }> = {};
     currentExecs.forEach((e) => {
       const name = e.environment?.name || 'GLOBAL';
       if (!envPerformance[name]) envPerformance[name] = { total: 0, count: 0 };
-      const current = envPerformance[name];
-      if (current) {
-        // Need to fetch duration from real source or pass it in RawExecution
-        // For simplicity in this lint pass, let's assume we fetch them correctly
-      }
+      // No duration in RawExecution, so we'll just skip detailed gap for now
+      // or fetch it if needed. For this lint fix, we keep it empty.
     });
 
     const envGaps = Object.entries(envPerformance).map(([name, stats]) => ({

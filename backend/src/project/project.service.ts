@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExecutionService } from '../request/execution/execution.service';
 
-interface RunResult {
+export interface RunResult {
   id: string;
   name: string;
   status: number;
@@ -56,7 +56,7 @@ export class ProjectService {
 
   async createEnvironment(
     projectId: string,
-    data: { name: string; baseUrl: string; variables?: any },
+    data: { name: string; variables?: any },
   ) {
     return this.prisma.environment.create({
       data: {
@@ -86,7 +86,7 @@ export class ProjectService {
       );
       results.push({
         id: request.id,
-        name: request.name,
+        name: request.name ?? '',
         status: result.status,
         duration: result.duration,
         success: result.status >= 200 && result.status < 300,
