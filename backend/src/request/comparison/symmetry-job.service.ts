@@ -42,7 +42,9 @@ export class SymmetryJobService implements OnApplicationBootstrap {
     // We use dynamic access to bypass linting if Prisma client hasn't been regenerated yet
     const prismaAny = this.prisma as any;
     if (!prismaAny.symmetryCheck) {
-      this.logger.warn('SymmetryCheck model not found in Prisma client. Skipping checks.');
+      this.logger.warn(
+        'SymmetryCheck model not found in Prisma client. Skipping checks.',
+      );
       return;
     }
 

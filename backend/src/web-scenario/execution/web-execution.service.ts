@@ -3,6 +3,20 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { chromium } from 'playwright';
 import { UtilsService } from '../../utils/utils.service';
 
+interface StepMetadata {
+  text?: string;
+  placeholder?: string | null;
+  role?: string;
+  name?: string;
+}
+
+interface ScenarioStep {
+  type: string;
+  selector?: string;
+  value?: string;
+  metadata?: StepMetadata;
+}
+
 @Injectable()
 export class WebExecutionService {
   constructor(
@@ -26,7 +40,7 @@ export class WebExecutionService {
     }
 
     const startTime = Date.now();
-    const logs: any[] = [];
+    const logs: Record<string, unknown>[] = [];
     let status = 'SUCCESS';
     let screenshotPath: string | null = null;
 
@@ -38,10 +52,11 @@ export class WebExecutionService {
     const page = await context.newPage();
 
     let scenarioUpdated = false;
-    let updatedSteps: any[] = [];
+    let updatedSteps: ScenarioStep[] = [];
 
     try {
-      const steps = (scenario.steps as any[]) || [];
+      const steps: ScenarioStep[] =
+        (scenario.steps as unknown as ScenarioStep[]) || [];
       updatedSteps = [...steps];
 
       let stepIndex = 0;
@@ -118,7 +133,7 @@ export class WebExecutionService {
                       timestamp: new Date().toISOString(),
                     });
                     break;
-                  } catch (e) {
+                  } catch {
                     continue;
                   }
                 }
@@ -195,7 +210,7 @@ export class WebExecutionService {
                 timeout: 5000,
               });
               break;
-            case 'ASSERT_TEXT':
+            case 'ASSERT_TEXT': {
               const textContent = await page.textContent(effectiveSelector);
               if (!textContent?.includes(value)) {
                 throw new Error(
@@ -203,7 +218,8 @@ export class WebExecutionService {
                 );
               }
               break;
-            case 'ASSERT_VALUE':
+            }
+            case 'ASSERT_VALUE': {
               const inputVal = await page.inputValue(effectiveSelector);
               if (inputVal !== value) {
                 throw new Error(
@@ -211,7 +227,8 @@ export class WebExecutionService {
                 );
               }
               break;
-            case 'ASSERT_URL':
+            }
+            case 'ASSERT_URL': {
               const currentUrl = page.url();
               if (!currentUrl.includes(value)) {
                 throw new Error(
@@ -219,7 +236,8 @@ export class WebExecutionService {
                 );
               }
               break;
-            case 'ASSERT_TITLE':
+            }
+            case 'ASSERT_TITLE': {
               const titleValue = await page.title();
               if (!titleValue.includes(value)) {
                 throw new Error(
@@ -227,10 +245,12 @@ export class WebExecutionService {
                 );
               }
               break;
-            case 'WAIT':
+            }
+            case 'WAIT': {
               const ms = parseInt(value) || 2000;
               await page.waitForTimeout(ms);
               break;
+            }
             case 'SCROLL':
               await page.locator(effectiveSelector).scrollIntoViewIfNeeded();
               break;
@@ -278,27 +298,22 @@ export class WebExecutionService {
                 updatedSteps[stepIndex] = { ...step, metadata };
                 scenarioUpdated = true;
               }
-            } catch (learnErr) {
+            } catch (learnErr: unknown) {
               // Non-blocking
-              console.warn(
-                'Learning failed for step',
-                stepIndex,
-                learnErr.message,
-              );
+              const message =
+                learnErr instanceof Error ? learnErr.message : String(learnErr);
+              console.warn('Learning failed for step', stepIndex, message);
             }
           }
 
-          logs.push({
-            step: `STEP_${currentStepIdx}: ${step.type}`,
-            status: elementFoundByHealing ? 'HEALED' : 'OK',
-            duration: Date.now() - stepStart,
-            timestamp: new Date().toISOString(),
-          });
-        } catch (stepError) {
+          break; // Stop scenario execution on first error
+        } catch (stepError: unknown) {
           status = 'FAILED';
+          const message =
+            stepError instanceof Error ? stepError.message : String(stepError);
           logs.push({
             step: `STEP_${currentStepIdx}: ${step.type}`,
-            error: stepError.message,
+            error: message,
             duration: Date.now() - stepStart,
             timestamp: new Date().toISOString(),
           });
@@ -315,11 +330,12 @@ export class WebExecutionService {
         }
         stepIndex++;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       status = 'FAILED';
+      const message = err instanceof Error ? err.message : String(err);
       logs.push({
         error: 'Global execution error',
-        message: err.message,
+        message: message,
         timestamp: new Date().toISOString(),
       });
     } finally {
@@ -338,7 +354,7 @@ export class WebExecutionService {
       if (scenarioUpdated) {
         await this.prisma.webScenario.update({
           where: { id: scenario.id },
-          data: { steps: updatedSteps as any },
+          data: { steps: updatedSteps as unknown as any },
         });
       }
     }

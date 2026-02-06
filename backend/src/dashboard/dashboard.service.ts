@@ -254,7 +254,9 @@ export class DashboardService {
       (e) => e.status >= 200 && e.status < 300,
     ).length;
     const currentHealth =
-      currentExecs.length > 0 ? (successCount / currentExecs.length) * 100 : 100;
+      currentExecs.length > 0
+        ? (successCount / currentExecs.length) * 100
+        : 100;
 
     const prevSuccessCount = previousExecs.filter(
       (e) => e.status >= 200 && e.status < 300,
@@ -265,10 +267,13 @@ export class DashboardService {
         : 100;
 
     // 2. Performance Analysis
-    const totalDuration = (await this.prisma.requestExecution.aggregate({
-      where: { request: { projectId }, createdAt: { gte: oneWeekAgo } },
-      _avg: { duration: true },
-    }))._avg.duration || 0;
+    const totalDuration =
+      (
+        await this.prisma.requestExecution.aggregate({
+          where: { request: { projectId }, createdAt: { gte: oneWeekAgo } },
+          _avg: { duration: true },
+        })
+      )._avg.duration || 0;
 
     // 3. Environment Gap
     const envPerformance: Record<string, { total: number; count: number }> = {};

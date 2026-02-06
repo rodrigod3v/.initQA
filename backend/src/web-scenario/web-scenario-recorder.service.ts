@@ -1,11 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { chromium, BrowserContext, Page } from 'playwright';
 
+interface RecordedEvent {
+  type: string;
+  selector: string;
+  value?: string;
+  timestamp?: number;
+}
+
 @Injectable()
 export class WebScenarioRecorderService {
   private activeSessions = new Map<
     string,
-    { browser: any; context: BrowserContext; page: Page; steps: any[] }
+    {
+      browser: any;
+      context: BrowserContext;
+      page: Page;
+      steps: RecordedEvent[];
+    }
   >();
 
   async startRecording(url: string, sessionId: string) {
@@ -24,16 +36,21 @@ export class WebScenarioRecorderService {
     // For this task, I will implement the logic for the backend recorder.
     const context = await browser.newContext();
     const page = await context.newPage();
-    const steps: any[] = [];
+    const steps: RecordedEvent[] = [];
 
-    await page.exposeFunction('recordEvent', (event: any) => {
-      steps.push(event);
+    await page.exposeFunction('recordEvent', (event: unknown) => {
+      steps.push(event as RecordedEvent);
     });
 
     await page.addInitScript(() => {
-      window.addEventListener(
+      const win = window as unknown as {
+        recordEvent: (event: any) => void;
+        addEventListener: typeof window.addEventListener;
+      };
+
+      win.addEventListener(
         'click',
-        (e) => {
+        (e: MouseEvent) => {
           const target = e.target as HTMLElement;
           if (
             target.tagName === 'INPUT' &&
@@ -47,7 +64,7 @@ export class WebScenarioRecorderService {
             target.closest('button, a, input, [role="button"], [onclick]') ||
             target;
 
-          (window as any).recordEvent({
+          win.recordEvent({
             type: 'CLICK',
             selector: getSelector(interactive as HTMLElement),
             timestamp: Date.now(),
@@ -64,7 +81,7 @@ export class WebScenarioRecorderService {
         )
           return;
 
-        (window as any).recordEvent({
+        win.recordEvent({
           type: 'FILL',
           selector: getSelector(target),
           value: target.value,
@@ -114,15 +131,16 @@ export class WebScenarioRecorderService {
     const session = this.activeSessions.get(sessionId);
     if (!session) return [];
 
-    await session.browser.close();
+    const browser = session.browser as { close: () => Promise<void> };
+    await browser.close();
     this.activeSessions.delete(sessionId);
 
     return this.processSteps(session.steps);
   }
 
-  private processSteps(rawSteps: any[]) {
+  private processSteps(rawSteps: RecordedEvent[]): RecordedEvent[] {
     // Deduplicate consecutive FILL/INPUT events for the same selector
-    const processed: any[] = [];
+    const processed: RecordedEvent[] = [];
 
     for (let i = 0; i < rawSteps.length; i++) {
       const current = rawSteps[i];
@@ -142,6 +160,7 @@ export class WebScenarioRecorderService {
         type: current.type,
         selector: current.selector,
         value: current.value,
+        timestamp: current.timestamp,
       });
     }
 

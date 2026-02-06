@@ -42,7 +42,7 @@ export class WebScenarioService {
     return scenario;
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: Partial<{ name: string; steps: any[] }>) {
     return this.prisma.webScenario.update({
       where: { id },
       data,
