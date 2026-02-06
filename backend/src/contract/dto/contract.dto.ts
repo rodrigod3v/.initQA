@@ -1,7 +1,7 @@
 export class ParseContractDto {
-    content: string;
+  content: string;
 }
 
 export class SyncContractDto {
-    content: string;
+  content: string;
 }

@@ -6,6 +6,6 @@ import { RequestModule } from '../request/request.module';
 @Module({
   imports: [RequestModule],
   controllers: [ProjectController],
-  providers: [ProjectService]
+  providers: [ProjectService],
 })
 export class ProjectModule {}

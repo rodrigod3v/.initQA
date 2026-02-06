@@ -14,10 +14,12 @@ export class LoadExecutionService {
   constructor(
     private prisma: PrismaService,
     private utilsService: UtilsService,
-  ) { }
+  ) {}
 
   async execute(loadTestId: string, environmentId?: string) {
-    console.log(`[LoadExecution] Executing test ${loadTestId} with env ${environmentId}`);
+    console.log(
+      `[LoadExecution] Executing test ${loadTestId} with env ${environmentId}`,
+    );
     const test = await this.prisma.loadTest.findUnique({
       where: { id: loadTestId },
     });
@@ -33,7 +35,10 @@ export class LoadExecutionService {
     }
 
     const config = test.config as any;
-    const targetUrl = this.utilsService.replaceVariables(config.targetUrl, variables);
+    const targetUrl = this.utilsService.replaceVariables(
+      config.targetUrl,
+      variables,
+    );
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'initqa-k6-'));
     const scriptPath = path.join(tempDir, 'script.js');
     const outputPath = path.join(tempDir, 'output.json');
@@ -65,8 +70,10 @@ export default function () {
     try {
       // Execute k6 with summary exported to JSON
       // Note: This requires k6 to be installed on the system
-      const { stdout, stderr } = await execAsync(`k6 run --summary-export=${outputPath} ${scriptPath}`);
-      
+      const { stdout, stderr } = await execAsync(
+        `k6 run --summary-export=${outputPath} ${scriptPath}`,
+      );
+
       if (fs.existsSync(outputPath)) {
         results = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
       } else {
@@ -76,8 +83,12 @@ export default function () {
       console.error('[LoadExecution] k6 execution failed:', err);
       status = 'CRASHED';
       let errorMessage = err.message;
-      if (err.message?.includes('not recognized') || err.message?.includes('enoent')) {
-        errorMessage = 'k6 binary not found on system. Please install k6 (https://k6.io) to run load tests.';
+      if (
+        err.message?.includes('not recognized') ||
+        err.message?.includes('enoent')
+      ) {
+        errorMessage =
+          'k6 binary not found on system. Please install k6 (https://k6.io) to run load tests.';
       }
       results = { error: errorMessage, stderr: err.stderr };
     } finally {
@@ -99,7 +110,7 @@ export default function () {
           loadTestId: test.id,
           status,
           duration,
-          results: results as any,
+          results: results,
         },
       });
     } catch (dbErr) {

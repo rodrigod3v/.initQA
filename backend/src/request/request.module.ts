@@ -10,7 +10,12 @@ import { UtilsModule } from '../utils/utils.module';
 @Module({
   imports: [ContractModule, UtilsModule],
   controllers: [RequestController],
-  providers: [RequestService, ExecutionService, ComparisonService, SymmetryJobService],
+  providers: [
+    RequestService,
+    ExecutionService,
+    ComparisonService,
+    SymmetryJobService,
+  ],
   exports: [RequestService, ExecutionService, ComparisonService],
 })
 export class RequestModule {}

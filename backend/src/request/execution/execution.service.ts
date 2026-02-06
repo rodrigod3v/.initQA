@@ -10,7 +10,7 @@ export class ExecutionService {
     private prisma: PrismaService,
     private contractService: ContractService,
     private utilsService: UtilsService,
-  ) { }
+  ) {}
 
   async execute(requestId: string, environmentId?: string) {
     const request = await this.prisma.request.findUnique({
@@ -36,7 +36,10 @@ export class ExecutionService {
 
     // Replace placeholders in URL, headers, and body
     const url = this.utilsService.replaceVariables(request.url, variables);
-    const headers = this.utilsService.replaceVariables(request.headers, variables);
+    const headers = this.utilsService.replaceVariables(
+      request.headers,
+      variables,
+    );
     const body = this.utilsService.replaceVariables(request.body, variables);
 
     // Handle Protocol specific logic
@@ -63,13 +66,17 @@ export class ExecutionService {
 
     // Build final headers object
     const finalHeaders = {
-      'Accept': 'application/json, text/plain, */*',
+      Accept: 'application/json, text/plain, */*',
       'User-Agent': 'initQA-System-Agent/1.0',
       ...(headers || {}),
     };
 
     // Auto-set Content-Type if body exists and not explicitly set
-    if (body && !finalHeaders['Content-Type'] && !finalHeaders['content-type']) {
+    if (
+      body &&
+      !finalHeaders['Content-Type'] &&
+      !finalHeaders['content-type']
+    ) {
       finalHeaders['Content-Type'] = 'application/json';
     }
 
@@ -81,7 +88,9 @@ export class ExecutionService {
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        console.log(`[EXECUTION] [${request.method}] Attempt ${attempts}/${maxAttempts} for ${url}`);
+        console.log(
+          `[EXECUTION] [${request.method}] Attempt ${attempts}/${maxAttempts} for ${url}`,
+        );
 
         response = await axios({
           method: effectiveMethod,
@@ -94,7 +103,10 @@ export class ExecutionService {
 
         break;
       } catch (error) {
-        const isNetworkError = error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT';
+        const isNetworkError =
+          error.code === 'ECONNREFUSED' ||
+          error.code === 'ENOTFOUND' ||
+          error.code === 'ETIMEDOUT';
         if (attempts >= maxAttempts || !isNetworkError) {
           console.error(`[EXECUTION] [ERROR] ${url}: ${error.message}`);
 
@@ -109,18 +121,22 @@ export class ExecutionService {
                 error: 'EXECUTION_FAILED',
                 message: error.message,
                 code: error.code,
-                attempts
+                attempts,
               } as any,
             },
           });
         }
-        console.warn(`[EXECUTION] [RETRY] Failed attempt ${attempts} for ${url}. Error: ${error.code}`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        console.warn(
+          `[EXECUTION] [RETRY] Failed attempt ${attempts} for ${url}. Error: ${error.code}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
       }
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[EXECUTION] [SUCCESS] ${url} returned ${response.status} in ${duration}ms`);
+    console.log(
+      `[EXECUTION] [SUCCESS] ${url} returned ${response.status} in ${duration}ms`,
+    );
 
     // Validate contract if schema exists
     let validationResult: any = null;
@@ -137,7 +153,12 @@ export class ExecutionService {
     let variablesChanged = false;
 
     if (request.testScript) {
-      const scriptResult = this.runTestScript(request.testScript, response, duration, updatedVariables);
+      const scriptResult = this.runTestScript(
+        request.testScript,
+        response,
+        duration,
+        updatedVariables,
+      );
       testResults = scriptResult.results;
       if (scriptResult.variablesChanged) {
         variablesChanged = true;
@@ -151,7 +172,9 @@ export class ExecutionService {
         where: { id: validEnvironmentId },
         data: { variables: updatedVariables as any },
       });
-      console.log(`[EXECUTION] Updated environment variables for ${validEnvironmentId}`);
+      console.log(
+        `[EXECUTION] Updated environment variables for ${validEnvironmentId}`,
+      );
     }
 
     // Save execution
@@ -161,7 +184,7 @@ export class ExecutionService {
         environmentId: validEnvironmentId,
         status: response.status,
         duration,
-        validationResult: validationResult as any,
+        validationResult: validationResult,
         testResults: testResults as any,
         response: {
           data: response.data,
@@ -173,7 +196,12 @@ export class ExecutionService {
     return execution;
   }
 
-  private runTestScript(script: string, response: any, duration: number, variables: any = {}) {
+  private runTestScript(
+    script: string,
+    response: any,
+    duration: number,
+    variables: any = {},
+  ) {
     const results: any[] = [];
     let variablesChanged = false;
     const currentVariables = { ...variables };
@@ -189,35 +217,47 @@ export class ExecutionService {
         to: {
           equal: (expected: any) => {
             const pass = JSON.stringify(actual) === JSON.stringify(expected);
-            if (!pass) throw new Error(`Expected ${JSON.stringify(actual)} to equal ${JSON.stringify(expected)}`);
+            if (!pass)
+              throw new Error(
+                `Expected ${JSON.stringify(actual)} to equal ${JSON.stringify(expected)}`,
+              );
             return matcher;
           },
           be: {
             a: (type: string) => {
-              const pass = (type === 'array') ? Array.isArray(actual) : typeof actual === type;
+              const pass =
+                type === 'array'
+                  ? Array.isArray(actual)
+                  : typeof actual === type;
               if (!pass) throw new Error(`Expected ${actual} to be a ${type}`);
               return matcher;
             },
             an: (type: string) => matcher.to.be.a(type),
             oneOf: (list: any[]) => {
               const pass = list.includes(actual);
-              if (!pass) throw new Error(`Expected ${actual} to be one of ${JSON.stringify(list)}`);
+              if (!pass)
+                throw new Error(
+                  `Expected ${actual} to be one of ${JSON.stringify(list)}`,
+                );
               return matcher;
             },
             below: (val: number) => {
               const pass = actual < val;
-              if (!pass) throw new Error(`Expected ${actual} to be below ${val}`);
+              if (!pass)
+                throw new Error(`Expected ${actual} to be below ${val}`);
               return matcher;
-            }
+            },
           },
           have: {
             property: (prop: string) => {
-              const pass = actual && Object.prototype.hasOwnProperty.call(actual, prop);
-              if (!pass) throw new Error(`Expected object to have property ${prop}`);
+              const pass =
+                actual && Object.prototype.hasOwnProperty.call(actual, prop);
+              if (!pass)
+                throw new Error(`Expected object to have property ${prop}`);
               return matcher;
-            }
-          }
-        }
+            },
+          },
+        },
       };
       return matcher;
     };
@@ -241,11 +281,13 @@ export class ExecutionService {
                 const validate = ajv.compile(schema);
                 const valid = validate(jsonData);
                 if (!valid) {
-                  throw new Error(`Schema validation failed: ${ajv.errorsText(validate.errors)}`);
+                  throw new Error(
+                    `Schema validation failed: ${ajv.errorsText(validate.errors)}`,
+                  );
                 }
-              }
-            }
-          }
+              },
+            },
+          },
         },
         test: (name: string, fn: Function) => {
           try {
@@ -261,12 +303,12 @@ export class ExecutionService {
             currentVariables[key] = value;
             variablesChanged = true;
           },
-          get: (key: string) => currentVariables[key]
-        }
+          get: (key: string) => currentVariables[key],
+        },
       },
       console: {
-        log: (...args: any[]) => console.log('[Sandbox]', ...args)
-      }
+        log: (...args: any[]) => console.log('[Sandbox]', ...args),
+      },
     };
 
     try {
@@ -275,12 +317,13 @@ export class ExecutionService {
       results.push({ name: 'Script Error', pass: false, error: err.message });
     }
 
-    const finalResults = results.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+    const finalResults = results.filter(
+      (v, i, a) => a.findIndex((t) => t.name === v.name) === i,
+    );
     return {
       results: finalResults,
       variables: currentVariables,
-      variablesChanged
+      variablesChanged,
     };
   }
-
 }

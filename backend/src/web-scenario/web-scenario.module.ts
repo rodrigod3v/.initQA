@@ -9,7 +9,11 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [PrismaModule, UtilsModule],
   controllers: [WebScenarioController],
-  providers: [WebScenarioService, WebExecutionService, WebScenarioRecorderService],
+  providers: [
+    WebScenarioService,
+    WebExecutionService,
+    WebScenarioRecorderService,
+  ],
   exports: [WebScenarioService],
 })
 export class WebScenarioModule {}

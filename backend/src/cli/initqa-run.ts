@@ -1,5 +1,18 @@
 import axios from 'axios';
-import * as fs from 'fs';
+
+interface RunReport {
+  projectId: string;
+  total: number;
+  passed: number;
+  failed: number;
+  results: Array<{
+    id: string;
+    name: string;
+    status: number;
+    duration: number;
+    success: boolean;
+  }>;
+}
 
 async function run() {
   const args = process.argv.slice(2);
@@ -10,7 +23,8 @@ async function run() {
 
   const projectId = projectIdIdx !== -1 ? args[projectIdIdx + 1] : null;
   const envId = envIdIdx !== -1 ? args[envIdIdx + 1] : undefined;
-  const apiUrl = apiUrlIdx !== -1 ? args[apiUrlIdx + 1] : 'http://localhost:3000';
+  const apiUrl =
+    apiUrlIdx !== -1 ? args[apiUrlIdx + 1] : 'http://localhost:3000';
   const token = tokenIdx !== -1 ? args[tokenIdx + 1] : process.env.INITQA_TOKEN;
 
   if (!projectId) {
@@ -19,7 +33,9 @@ async function run() {
   }
 
   if (!token) {
-    console.error('Error: --token or INITQA_TOKEN environment variable is required');
+    console.error(
+      'Error: --token or INITQA_TOKEN environment variable is required',
+    );
     process.exit(1);
   }
 
@@ -27,20 +43,24 @@ async function run() {
   if (envId) console.log(`🌍 Target Environment: ${envId}`);
 
   try {
-    const response = await axios.post(`${apiUrl}/projects/${projectId}/run-all`, {
-      environmentId: envId
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await axios.post(
+      `${apiUrl}/projects/${projectId}/run-all`,
+      {
+        environmentId: envId,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
 
-    const report = response.data;
+    const report = response.data as RunReport;
     console.log('\n--- EXECUTION SUMMARY ---');
     console.log(`✅ Passed: ${report.passed}`);
     console.log(`❌ Failed: ${report.failed}`);
     console.log(`📊 Total:  ${report.total}`);
     console.log('-------------------------\n');
 
-    report.results.forEach((res: any) => {
+    report.results.forEach((res) => {
       const icon = res.success ? '✅' : '❌';
       console.log(`${icon} [${res.status}] ${res.name} (${res.duration}ms)`);
     });
@@ -53,9 +73,13 @@ async function run() {
       process.exit(0);
     }
   } catch (err: any) {
-    console.error('\n❌ Execution failed:', err.response?.data?.message || err.message);
+    const message = err.response?.data?.message || err.message;
+    console.error('\n❌ Execution failed:', message);
     process.exit(1);
   }
 }
 
-run();
+run().catch((err) => {
+  console.error('Unexpected error in CI runner:', err);
+  process.exit(1);
+});

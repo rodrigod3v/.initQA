@@ -42,7 +42,12 @@ describe('RequestService', () => {
 
   describe('create', () => {
     it('should create a request', async () => {
-      const dto = { name: 'Test', method: 'GET', url: 'http://test.com', projectId: '1' };
+      const dto = {
+        name: 'Test',
+        method: 'GET',
+        url: 'http://test.com',
+        projectId: '1',
+      };
       const expected = { id: '1', ...dto };
       (prisma.request.create as jest.Mock).mockResolvedValue(expected);
 
@@ -59,7 +64,9 @@ describe('RequestService', () => {
 
       const result = await service.findAll('1');
       expect(result).toEqual(expected);
-      expect(prisma.request.findMany).toHaveBeenCalledWith({ where: { projectId: '1' } });
+      expect(prisma.request.findMany).toHaveBeenCalledWith({
+        where: { projectId: '1' },
+      });
     });
   });
 
@@ -70,7 +77,9 @@ describe('RequestService', () => {
 
       const result = await service.findOne('1');
       expect(result).toEqual(expected);
-      expect(prisma.request.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.request.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
     });
   });
 
@@ -82,7 +91,10 @@ describe('RequestService', () => {
 
       const result = await service.update('1', dto);
       expect(result).toEqual(expected);
-      expect(prisma.request.update).toHaveBeenCalledWith({ where: { id: '1' }, data: dto });
+      expect(prisma.request.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: dto,
+      });
     });
   });
 
@@ -93,14 +105,18 @@ describe('RequestService', () => {
 
       const result = await service.remove('1');
       expect(result).toEqual(expected);
-      expect(prisma.request.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.request.delete).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
     });
   });
 
   describe('getProjectHistory', () => {
     it('should return execution history', async () => {
       const expected = [{ id: 'exec-1' }];
-      (prisma.requestExecution.findMany as jest.Mock).mockResolvedValue(expected);
+      (prisma.requestExecution.findMany as jest.Mock).mockResolvedValue(
+        expected,
+      );
 
       const result = await service.getProjectHistory('1');
       expect(result).toEqual(expected);
@@ -110,7 +126,9 @@ describe('RequestService', () => {
 
   describe('clearProjectHistory', () => {
     it('should delete project history', async () => {
-      (prisma.requestExecution.deleteMany as jest.Mock).mockResolvedValue({ count: 5 });
+      (prisma.requestExecution.deleteMany as jest.Mock).mockResolvedValue({
+        count: 5,
+      });
 
       await service.clearProjectHistory('1');
       expect(prisma.requestExecution.deleteMany).toHaveBeenCalledWith({

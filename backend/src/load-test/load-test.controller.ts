@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { LoadTestService } from './load-test.service';
 import { LoadExecutionService } from './execution/load-execution.service';
 import { CreateLoadTestDto, UpdateLoadTestDto } from './dto/load-test.dto';
@@ -14,7 +24,7 @@ export class LoadTestController {
   constructor(
     private readonly loadTestService: LoadTestService,
     private readonly loadExecutionService: LoadExecutionService,
-  ) { }
+  ) {}
 
   @ApiOperation({ summary: 'Create a new load test' })
   @Post()
@@ -44,7 +54,10 @@ export class LoadTestController {
 
   @ApiOperation({ summary: 'Execute a load test' })
   @Post(':id/execute')
-  execute(@Param('id') id: string, @Query('environmentId') environmentId?: string) {
+  execute(
+    @Param('id') id: string,
+    @Query('environmentId') environmentId?: string,
+  ) {
     return this.loadExecutionService.execute(id, environmentId);
   }
 

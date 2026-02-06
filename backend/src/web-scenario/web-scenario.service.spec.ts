@@ -51,7 +51,9 @@ describe('WebScenarioService', () => {
 
     const result = await service.findAll('1');
     expect(result).toEqual(expected);
-    expect(prisma.webScenario.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { projectId: '1' } }));
+    expect(prisma.webScenario.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { projectId: '1' } }),
+    );
   });
 
   it('delete', async () => {
@@ -59,7 +61,11 @@ describe('WebScenarioService', () => {
     (prisma.webScenario.delete as jest.Mock).mockResolvedValue({ id: '1' });
 
     await service.remove('1');
-    expect(prisma.webExecution.deleteMany).toHaveBeenCalledWith({ where: { scenarioId: '1' } });
-    expect(prisma.webScenario.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+    expect(prisma.webExecution.deleteMany).toHaveBeenCalledWith({
+      where: { scenarioId: '1' },
+    });
+    expect(prisma.webScenario.delete).toHaveBeenCalledWith({
+      where: { id: '1' },
+    });
   });
 });

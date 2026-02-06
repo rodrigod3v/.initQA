@@ -1,3 +1,3 @@
 export class CreateProjectDto {
-    name: string;
+  name: string;
 }

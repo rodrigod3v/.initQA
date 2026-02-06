@@ -55,7 +55,8 @@ export class UtilsService {
       delete mutated[randomKey];
     } else {
       // Change type
-      mutated[randomKey] = typeof mutated[randomKey] === 'string' ? 123 : 'invalid_string';
+      mutated[randomKey] =
+        typeof mutated[randomKey] === 'string' ? 123 : 'invalid_string';
     }
 
     return mutated;
@@ -63,9 +64,9 @@ export class UtilsService {
 
   replaceVariables(target: any, variables: Record<string, any>): any {
     if (!target) return target;
-    
+
     let str = typeof target === 'string' ? target : JSON.stringify(target);
-    
+
     // Replace user variables
     Object.keys(variables).forEach((key) => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');

@@ -10,7 +10,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard)
 @Controller('contract')
 export class ContractController {
-  constructor(private contractService: ContractService) { }
+  constructor(private contractService: ContractService) {}
 
   @ApiOperation({ summary: 'Parse a Swagger/OpenAPI definition' })
   @Post('parse')

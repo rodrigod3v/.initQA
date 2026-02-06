@@ -9,7 +9,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard)
 @Controller('utils')
 export class UtilsController {
-  constructor(private utilsService: UtilsService) { }
+  constructor(private utilsService: UtilsService) {}
 
   @ApiOperation({ summary: 'Generate a random valid/invalid CPF' })
   @Get('generate/cpf')

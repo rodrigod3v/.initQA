@@ -8,7 +8,12 @@ export class ComparisonService {
 
   constructor(private executionService: ExecutionService) {}
 
-  async compare(requestId: string, leftEnvId: string, rightEnvId: string, maskingKeys: string[] = []) {
+  async compare(
+    requestId: string,
+    leftEnvId: string,
+    rightEnvId: string,
+    maskingKeys: string[] = [],
+  ) {
     const [leftExecution, rightExecution] = await Promise.all([
       this.executionService.execute(requestId, leftEnvId),
       this.executionService.execute(requestId, rightEnvId),
@@ -25,17 +30,23 @@ export class ComparisonService {
     const delta = this.differ.diff(leftData, rightData);
 
     return {
-      left: { ...(leftExecution as any), response: { ...(leftExecution.response as any), data: leftData } },
-      right: { ...(rightExecution as any), response: { ...(rightExecution.response as any), data: rightData } },
+      left: {
+        ...(leftExecution as any),
+        response: { ...(leftExecution.response as any), data: leftData },
+      },
+      right: {
+        ...(rightExecution as any),
+        response: { ...(rightExecution.response as any), data: rightData },
+      },
       delta,
     };
   }
 
   private maskData(data: any, keys: string[]): any {
     if (!data || typeof data !== 'object') return data;
-    
+
     if (Array.isArray(data)) {
-      return data.map(item => this.maskData(item, keys));
+      return data.map((item) => this.maskData(item, keys));
     }
 
     const masked = { ...data };

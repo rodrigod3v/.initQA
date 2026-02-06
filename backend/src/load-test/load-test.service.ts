@@ -10,7 +10,7 @@ export class LoadTestService {
     return this.prisma.loadTest.create({
       data: {
         ...rest,
-        project: { connect: { id: projectId } }
+        project: { connect: { id: projectId } },
       },
     });
   }
@@ -20,10 +20,10 @@ export class LoadTestService {
       where: projectId ? { projectId } : {},
       include: {
         _count: {
-          select: { executions: true }
-        }
+          select: { executions: true },
+        },
       },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
@@ -33,9 +33,9 @@ export class LoadTestService {
       include: {
         executions: {
           take: 10,
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!test) throw new NotFoundException('Load test not found');
@@ -51,7 +51,7 @@ export class LoadTestService {
 
   async remove(id: string) {
     await this.prisma.loadExecution.deleteMany({
-      where: { loadTestId: id }
+      where: { loadTestId: id },
     });
     return this.prisma.loadTest.delete({
       where: { id },

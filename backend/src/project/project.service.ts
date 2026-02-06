@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExecutionService } from '../request/execution/execution.service';
 
+interface RunResult {
+  id: string;
+  name: string;
+  status: number;
+  duration: number;
+  success: boolean;
+}
+
 @Injectable()
 export class ProjectService {
   constructor(
@@ -46,7 +54,10 @@ export class ProjectService {
     });
   }
 
-  async createEnvironment(projectId: string, data: any) {
+  async createEnvironment(
+    projectId: string,
+    data: { name: string; baseUrl: string; variables?: any },
+  ) {
     return this.prisma.environment.create({
       data: {
         ...data,
@@ -67,9 +78,12 @@ export class ProjectService {
       orderBy: { createdAt: 'asc' },
     });
 
-    const results: any[] = [];
+    const results: RunResult[] = [];
     for (const request of requests) {
-      const result = await this.executionService.execute(request.id, environmentId);
+      const result = await this.executionService.execute(
+        request.id,
+        environmentId,
+      );
       results.push({
         id: request.id,
         name: request.name,
@@ -82,8 +96,8 @@ export class ProjectService {
     return {
       projectId,
       total: requests.length,
-      passed: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
+      passed: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
       results,
     };
   }

@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ContractService {
   private ajv = new Ajv({ allErrors: true });
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   parseSwagger(content: string): any {
     try {
@@ -31,8 +31,9 @@ export class ContractService {
     for (const path of Object.keys(paths)) {
       for (const method of Object.keys(paths[path])) {
         const definition = paths[path][method];
-        const schema = definition.responses?.['200']?.content?.['application/json']?.schema ||
-          definition.responses?.['200']?.schema;
+        const schema =
+          definition.responses?.['200']?.content?.['application/json']
+            ?.schema || definition.responses?.['200']?.schema;
 
         // Try to find existing request
         let request = await this.prisma.request.findFirst({
@@ -47,7 +48,7 @@ export class ContractService {
           request = await this.prisma.request.update({
             where: { id: request.id },
             data: {
-              expectedResponseSchema: schema as any,
+              expectedResponseSchema: schema,
             },
           });
         } else {
@@ -56,7 +57,7 @@ export class ContractService {
               projectId,
               url: path,
               method: method.toUpperCase(),
-              expectedResponseSchema: schema as any,
+              expectedResponseSchema: schema,
             },
           });
         }

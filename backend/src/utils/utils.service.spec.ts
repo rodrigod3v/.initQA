@@ -37,9 +37,9 @@ describe('UtilsService', () => {
     });
 
     it('should return same if payload is empty', () => {
-        const payload = {};
-        const mutated = service.generateInvalidPayload(payload);
-        expect(mutated).toEqual(payload);
+      const payload = {};
+      const mutated = service.generateInvalidPayload(payload);
+      expect(mutated).toEqual(payload);
     });
   });
 
@@ -59,10 +59,10 @@ describe('UtilsService', () => {
     });
 
     it('should handle string target', () => {
-        const target = 'Hello {{name}}';
-        const variables = { name: 'World' };
-        const result = service.replaceVariables(target, variables);
-        expect(result).toBe('Hello World');
+      const target = 'Hello {{name}}';
+      const variables = { name: 'World' };
+      const result = service.replaceVariables(target, variables);
+      expect(result).toBe('Hello World');
     });
   });
 });
