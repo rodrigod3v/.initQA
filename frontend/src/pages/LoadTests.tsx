@@ -292,9 +292,9 @@ const LoadTests: React.FC = () => {
                         </div>
                     </Card>
 
-                    <div className="flex-1 grid grid-cols-5 gap-4 min-h-0">
+                    <div className="flex-1 flex flex-col lg:grid lg:grid-cols-5 gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">
                         {/* Config Panel */}
-                        <div className="col-span-2 flex flex-col gap-4">
+                        <div className="lg:col-span-2 flex flex-col gap-4 shrink-0">
                             <Card className="flex-1 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden">
                                 <div className="h-10 border-b border-main bg-deep/50 flex items-center px-4 shrink-0">
                                     <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest">K6_CONFIG</span>
@@ -362,7 +362,7 @@ const LoadTests: React.FC = () => {
                         </div>
 
                         {/* Results Panel */}
-                        <div className="col-span-3 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative">
+                        <div className="lg:col-span-3 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative min-h-[500px] lg:min-h-0">
                             {executing && (
                                 <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                                     <div className="relative">

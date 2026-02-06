@@ -89,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
     return (
         <aside
             className={`
-                ${isCollapsed ? 'w-16' : 'w-64 lg:w-48'} 
+                ${isCollapsed ? 'w-16' : 'w-64 md:w-56 lg:w-48'} 
                 bg-surface border-r border-main flex flex-col h-screen lg:sticky top-0 
                 overflow-visible shadow-2xl transition-all duration-300 ease-in-out
                 ${className}
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
                     )}
                     <span className={`
                         font-bold tracking-tighter text-primary-text uppercase bg-clip-text
-                        ${isCollapsed ? 'text-[10px] block' : 'text-sm hidden lg:block'}
+                        ${isCollapsed ? 'text-[10px] block' : 'text-sm hidden md:block'}
                     `}>
                         .init<span className="text-accent">QA</span>
                     </span>
@@ -143,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
                                         title={isCollapsed ? item.label : ''}
                                     >
                                         <item.icon size={18} className="shrink-0 transition-transform group-hover:scale-110" />
-                                        {!isCollapsed && <span className="hidden lg:block text-xs font-mono tracking-wide">{item.label}</span>}
+                                        {!isCollapsed && <span className="hidden md:block text-xs font-mono tracking-wide">{item.label}</span>}
                                     </a>
                                 );
                             }
@@ -179,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
                                             </div>
                                         )}
                                     </div>
-                                    {!isCollapsed && <span className="hidden lg:block text-xs font-mono tracking-wide">{item.label}</span>}
+                                    {!isCollapsed && <span className="hidden md:block text-xs font-mono tracking-wide">{item.label}</span>}
                                 </NavLink>
                             );
                         })}
@@ -198,7 +198,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className = '', onCloseMobile 
                     title={isCollapsed ? 'Logout' : ''}
                 >
                     <LogOut size={16} className="transition-transform group-hover:-translate-x-1" />
-                    {!isCollapsed && <span className="hidden lg:block text-[10px] font-mono uppercase tracking-[0.1em]">Session Stop</span>}
+                    {!isCollapsed && <span className="hidden md:block text-[10px] font-mono uppercase tracking-[0.1em]">Session Stop</span>}
                 </button>
             </div>
         </aside>

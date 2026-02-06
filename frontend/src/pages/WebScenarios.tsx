@@ -277,9 +277,12 @@ const WebScenarios: React.FC = () => {
                 </Button>
             </div>
 
-            <div className="flex flex-1 gap-4 overflow-hidden">
+            <div className="flex flex-col lg:flex-row flex-1 gap-4 overflow-hidden">
                 {/* Sidebar */}
-                <div className="w-80 flex flex-col border-sharp border-main bg-surface/50 overflow-hidden shrink-0">
+                <div className={`
+                    w-full lg:w-80 flex flex-col border-sharp border-main bg-surface/50 overflow-hidden shrink-0
+                    ${selectedScenario ? 'h-48 lg:h-auto' : 'flex-1'}
+                `}>
                     <div className="h-10 border-b border-main flex bg-deep/50 shrink-0 items-center justify-between px-2">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent flex items-center gap-2">
                             <Monitor size={14} /> SCENARIOS
@@ -376,9 +379,9 @@ const WebScenarios: React.FC = () => {
                             </div>
                         </Card>
 
-                        <div className="flex-1 grid grid-cols-5 gap-4 min-h-0">
+                        <div className="flex-1 flex flex-col lg:grid lg:grid-cols-5 gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">
                             {/* Steps Builder */}
-                            <div className="col-span-3 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden">
+                            <div className="lg:col-span-3 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden min-h-[400px]">
                                 <div className="h-10 border-b border-main bg-deep/50 flex items-center justify-between px-4 shrink-0">
                                     <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest">WORKFLOW_STEPS</span>
                                     <div className="flex items-center gap-1">
@@ -496,7 +499,7 @@ const WebScenarios: React.FC = () => {
                             </div>
 
                             {/* Execution Activity */}
-                            <div className="col-span-2 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative">
+                            <div className="lg:col-span-2 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative min-h-[300px]">
                                 {executing && (
                                     <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                                         <Loader2 className="animate-spin text-accent mb-4" size={48} />

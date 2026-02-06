@@ -34,13 +34,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         </button>
                         <span className="text-[10px] font-mono text-emerald-500 flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="hidden sm:inline">QA_ENGINE_READY</span>
-                            <span className="sm:hidden">READY</span>
+                            <span className="hidden xs:inline">QA_ENGINE_READY</span>
+                            <span className="xs:hidden">READY</span>
                         </span>
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-[10px] font-mono text-secondary-text tracking-[0.2em] font-bold">
-                            INIT.QA <span className="text-accent/50">V1.2.0</span>
+                            INIT.QA <span className="text-accent/50 hidden sm:inline">V1.2.0</span>
                         </span>
                     </div>
                 </header>

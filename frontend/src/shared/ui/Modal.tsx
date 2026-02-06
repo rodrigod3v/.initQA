@@ -104,7 +104,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
         >
             <div
                 ref={modalRef}
-                className="bg-surface border-sharp border-accent/20 glow-accent w-full max-w-md overflow-hidden shadow-2xl"
+                className="bg-surface border-sharp border-accent/20 glow-accent w-full max-w-[95vw] md:max-w-md overflow-hidden shadow-2xl m-4"
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseUp={(e) => e.stopPropagation()}
             >

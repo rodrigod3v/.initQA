@@ -193,20 +193,20 @@ const Home: React.FC = () => {
     }
 
     return (
-        <div className="h-full overflow-y-auto p-8 space-y-10 custom-scrollbar bg-[#03070c]">
+        <div className="h-full overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-10 custom-scrollbar bg-[#03070c]">
             {/* Strategic Header */}
-            <div className="relative group border border-accent/20 bg-accent/[0.02] p-10 overflow-hidden">
+            <div className="relative group border border-accent/20 bg-accent/[0.02] p-5 md:p-10 overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl -mr-48 -mt-48 transition-opacity group-hover:opacity-60" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl -ml-32 -mb-32" />
 
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-4 mb-4">
-                            <div className="p-3 bg-accent/10 border border-accent/30 rounded-lg">
-                                <Rocket size={40} className="text-accent" />
+                            <div className="p-3 bg-accent/10 border border-accent/30 rounded-lg shrink-0">
+                                <Rocket size={40} className="text-accent w-8 h-8 md:w-10 md:h-10" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-mono font-bold text-accent uppercase tracking-tighter">
+                                <h1 className="text-xl md:text-3xl font-mono font-bold text-accent uppercase tracking-tighter">
                                     CONTROL_CENTER
                                 </h1>
                                 <div className="flex items-center gap-2 mt-1">
@@ -252,9 +252,9 @@ const Home: React.FC = () => {
             </div>
 
             {view === 'overview' ? (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {/* Main Interaction Groups */}
-                    <div className="lg:col-span-8 space-y-10">
+                    <div className="lg:col-span-8 space-y-6 md:space-y-10">
                         {sections.map((section) => (
                             <div key={section.title}>
                                 <div className="mb-4">
@@ -266,7 +266,7 @@ const Home: React.FC = () => {
                                     </p>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {section.items.map((item) => (
                                         <button
                                             key={item.title}
@@ -306,10 +306,10 @@ const Home: React.FC = () => {
                         {/* Platform Pulse */}
                         {stats && (
                             <div>
-                                <h2 className="text-[10px] font-mono font-bold text-accent/80 uppercase tracking-[0.2em] mb-4 text-center lg:text-left">
+                                <h2 className="text-[10px] font-mono font-bold text-accent/80 uppercase tracking-[0.2em] mb-4 text-left">
                                     PLATFORM_PULSE
                                 </h2>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-4">
                                     <div className="bg-surface/30 border border-main p-4 hover:border-accent/20 transition-colors">
                                         <div className="flex items-center justify-between mb-2">
                                             <Package size={12} className="text-accent/40" />
@@ -334,7 +334,7 @@ const Home: React.FC = () => {
                                             <span className="text-[8px] font-mono text-secondary-text uppercase tracking-widest">Stability</span>
                                         </div>
                                         <div className="flex items-end gap-3">
-                                            <div className="text-2xl font-mono font-bold text-emerald-500 tracking-tighter">
+                                            <div className="text-xl md:text-2xl font-mono font-bold text-emerald-500 tracking-tighter">
                                                 {stats.global.successRate.toFixed(1)}%
                                             </div>
                                             <div className="flex-1 h-1.5 bg-main/30 rounded-full mb-2 overflow-hidden" title="Average Success Rate">
@@ -413,8 +413,8 @@ const Home: React.FC = () => {
                                     HIGH_SYMMETRY_VIOLATION_NODES
                                 </h2>
                             </div>
-                            <div className="bg-surface/30 border border-main overflow-hidden">
-                                <table className="w-full text-left border-collapse">
+                            <div className="bg-surface/30 border border-main overflow-x-auto custom-scrollbar">
+                                <table className="w-full text-left border-collapse min-w-[500px]">
                                     <thead>
                                         <tr className="bg-main/20 border-b border-main">
                                             <th className="px-4 py-3 text-[9px] font-mono text-secondary-text uppercase tracking-widest font-bold">Endpoint_Identity</th>

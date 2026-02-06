@@ -1,6 +1,6 @@
 export const httpRequestStyles = {
     container: "h-full bg-deep flex flex-col overflow-hidden",
-    header: "h-auto lg:h-16 border-b border-main/10 flex flex-col lg:flex-row items-start lg:items-center justify-between px-6 py-2 lg:py-0 bg-surface/30 shrink-0 gap-2 lg:gap-0",
+    header: "h-auto md:h-16 border-b border-main flex flex-col md:flex-row items-stretch md:items-center justify-between px-4 py-2 md:py-0 bg-surface/30 shrink-0 gap-3 md:gap-0",
     headerBrandContainer: "flex items-center gap-3 shrink-0 w-full lg:w-auto",
     headerIconWrapper: "p-2 bg-accent/10 border border-sharp border-accent/20 text-accent",
     headerTitle: "text-xs font-bold tracking-[0.2em] uppercase text-primary-text",
@@ -10,7 +10,7 @@ export const httpRequestStyles = {
     main: "flex-1 flex flex-col lg:flex-row overflow-hidden gap-4 p-4",
 
     // Sidebar - Minimalist approach (no outer borders)
-    sidebar: "w-full lg:w-[260px] bg-white/[0.02] flex flex-col shrink-0 overflow-hidden rounded-sm",
+    sidebar: "w-full md:w-[240px] border-b md:border-b-0 md:border-r border-main/10 bg-surface/10 flex flex-col shrink-0 overflow-hidden h-[200px] md:h-auto",
     sidebarHeader: "h-12 px-4 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.02] shrink-0",
     sidebarLabel: "text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-accent/60",
     sidebarSettingsIcon: "text-secondary-text/30 hover:text-accent transition-colors cursor-pointer",
@@ -24,8 +24,11 @@ export const httpRequestStyles = {
     editorContainer: "flex-1 flex flex-col min-w-0 gap-4 overflow-hidden min-h-[400px] lg:min-h-0",
 
     // Controls
-    methodSelect: "appearance-none bg-deep border border-main/10 px-4 font-mono font-bold text-accent text-[11px] focus:outline-none focus:border-accent/50 cursor-pointer h-9",
-    urlInput: "flex-1 bg-deep border border-main/10 px-4 text-[11px] text-primary-text font-mono focus:border-accent/50 focus:outline-none placeholder:text-secondary-text/10 h-9",
+    controls: "p-2 md:p-4 border-b border-main/10 flex flex-col gap-4 bg-deep/20 shrink-0",
+    urlBar: "flex flex-col sm:flex-row items-stretch sm:items-center gap-2",
+    methodSelect: "bg-surface border-sharp border-main/20 px-3 md:px-6 h-10 md:h-12 font-mono text-xs md:text-sm text-accent focus:outline-none focus:border-accent/40 w-full sm:w-auto",
+    urlInput: "flex-1 bg-surface border-sharp border-main/20 px-4 h-10 md:h-12 font-mono text-xs md:text-sm text-primary-text focus:outline-none focus:border-accent/40 placeholder:opacity-20 w-full",
+    actionButton: "h-10 md:h-12 px-6 md:px-10 text-[10px] md:text-xs uppercase tracking-[0.2em] w-full sm:w-auto",
     envSelect: "appearance-none bg-deep border border-main/10 px-4 font-mono font-bold text-accent text-[11px] focus:outline-none focus:border-accent/50 cursor-pointer h-9 px-8 pr-10",
 
     // Content areas

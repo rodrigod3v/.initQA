@@ -11,7 +11,7 @@ interface TabsProps {
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange, className = '', rightContent }) => {
     return (
         <div className={`flex items-center justify-between border-b border-main/10 bg-deep/30 h-10 shrink-0 ${className}`}>
-            <div className="flex h-full">
+            <div className="flex h-full overflow-x-auto no-scrollbar mask-gradient-right">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}

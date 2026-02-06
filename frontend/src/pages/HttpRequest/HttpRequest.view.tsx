@@ -207,8 +207,9 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                 </div>
             </header>
 
-            <main className={S.main}>
-                {/* Sidebar */}
+            {/* Main Application Body */}
+            <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                {/* Request Sidebar */}
                 <aside className={S.sidebar}>
                     <div className={S.sidebarHeader}>
                         <span className={S.sidebarLabel}>COLLECTIONS</span>
@@ -254,12 +255,38 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                 </aside>
 
                 {/* Editor Area */}
-                <section className={S.editorContainer}>
-                    {selectedRequest ? (
-                        <>
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                    {/* Controls Bar */}
+                    <div className={S.controls}>
+                        <div className={S.urlBar}>
+                            <select
+                                value={selectedRequest?.method || 'GET'}
+                                onChange={(e) => onUpdateRequest('method', e.target.value)}
+                                className={S.methodSelect}
+                            >
+                                {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                            <input
+                                type="text"
+                                value={selectedRequest?.url || ''}
+                                onChange={(e) => onUpdateRequest('url', e.target.value)}
+                                className={S.urlInput}
+                                placeholder="https://api.example.com/endpoint"
+                            />
+                            <Button
+                                onClick={onRunTest}
+                                disabled={isRunningTest || !selectedRequest}
+                                glow
+                                className={S.actionButton}
+                            >
+                                {isRunningTest ? <Loader2 size={16} className="animate-spin mr-2" /> : <Play size={16} className="mr-2" />}
+                                EXECUTE
+                            </Button>
+                        </div>
+                    </div>
 
-                            {/* Main Tabs */}
-                            {/* Main Tabs */}
+                    <section className={S.editorContainer}>
+                        {selectedRequest ? (
                             <div className={S.editorBody}>
                                 <Tabs
                                     tabs={[
@@ -311,13 +338,13 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                     )}
                                 </div>
                             </div>
-                        </>
-                    ) : (
-                        <div className={S.editorPlaceholder}>
-                            Awaiting_Protocol_Selection
-                        </div>
-                    )}
-                </section>
+                        ) : (
+                            <div className={S.editorPlaceholder}>
+                                Awaiting_Protocol_Selection
+                            </div>
+                        )}
+                    </section>
+                </div>
 
                 {/* Results Panel */}
                 <section className={S.resultsPanel}>
