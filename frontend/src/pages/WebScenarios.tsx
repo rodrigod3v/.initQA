@@ -4,7 +4,6 @@ import api from '@/shared/api';
 import {
     Plus,
     Play,
-    Save,
     Loader2,
     Globe,
     Monitor,
@@ -50,7 +49,6 @@ const WebScenarios: React.FC = () => {
     const scenarios = useScenarioStore(state => state.scenarios);
     const selectedScenario = useScenarioStore(state => state.selectedScenario);
     const isLoading = useScenarioStore(state => state.isLoading);
-    const syncStatus = useScenarioStore(state => state.syncStatus);
 
     const fetchScenarios = useScenarioStore(state => state.fetchScenarios);
     const selectScenario = useScenarioStore(state => state.selectScenario);
@@ -121,12 +119,6 @@ const WebScenarios: React.FC = () => {
         setActiveTab('activity');
     };
 
-    const handleSave = async () => {
-        if (!selectedScenario) return;
-        await saveScenario(selectedScenario.id);
-    };
-
-
     const handleEditClick = (e: React.MouseEvent, scenario: WebScenario) => {
         e.stopPropagation();
         setScenarioToEdit(scenario);
@@ -180,7 +172,7 @@ const WebScenarios: React.FC = () => {
         setExecuting(true);
         try {
             // Auto-save before execution to ensure backend has the latest steps
-            await handleSave();
+            await saveScenario(selectedScenario.id);
 
             const response = await api.post(`/web-scenarios/${selectedScenario.id}/execute${selectedEnvId ? `?environmentId=${selectedEnvId}` : ''}`);
             setLastExecution(response.data);
@@ -339,9 +331,6 @@ const WebScenarios: React.FC = () => {
                                         onChange={(e) => updateLocalScenario(selectedScenario.id, { name: e.target.value })}
                                         className="bg-transparent border-none text-xs font-mono font-bold text-primary-text focus:outline-none focus:ring-1 focus:ring-accent/30 px-2 flex-1"
                                     />
-                                    {syncStatus === 'saving' && <Loader2 size={10} className="animate-spin text-accent ml-2" />}
-                                    {syncStatus === 'saved' && <CheckCircle2 size={10} className="text-emerald-500 ml-2" />}
-                                    {syncStatus === 'error' && <XCircle size={10} className="text-rose-500 ml-2" />}
                                 </div>
                                 <div className="flex gap-2 h-full items-center">
                                     <div className="flex items-center gap-2 mr-2">
@@ -357,15 +346,6 @@ const WebScenarios: React.FC = () => {
                                             ))}
                                         </select>
                                     </div>
-                                    <Button
-                                        onClick={handleSave}
-                                        disabled={syncStatus === 'saving'}
-                                        variant="secondary"
-                                        className="px-4 text-[10px] uppercase tracking-widest h-full"
-                                    >
-                                        <Save size={14} className="mr-2" />
-                                        {syncStatus === 'saving' ? 'SAVING' : 'SAVE'}
-                                    </Button>
                                     <Button
                                         onClick={handleExecute}
                                         disabled={executing}

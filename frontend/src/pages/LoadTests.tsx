@@ -4,7 +4,6 @@ import api from '@/shared/api';
 import {
     Plus,
     Play,
-    Save,
     Loader2,
     Zap,
     BarChart3,
@@ -41,7 +40,7 @@ const LoadTests: React.FC = () => {
 
     const fetchTests = useLoadTestStore(state => state.fetchTests);
     const createTest = useLoadTestStore(state => state.createTest);
-    const updateTest = useLoadTestStore(state => state.updateTest);
+    const updateLocalTest = useLoadTestStore(state => state.updateLocalTest);
     const executeTest = useLoadTestStore(state => state.executeTest);
     const deleteTest = useLoadTestStore(state => state.deleteTest);
     const clearHistory = useLoadTestStore(state => state.clearHistory);
@@ -52,7 +51,6 @@ const LoadTests: React.FC = () => {
     // Local UI State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newTestName, setNewTestName] = useState('');
-    const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('config');
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
@@ -134,28 +132,6 @@ const LoadTests: React.FC = () => {
         }
     };
 
-    const handleSave = async () => {
-        if (!selectedTest) return;
-        setSaving(true);
-        try {
-            await updateTest(selectedTest.id, {
-                name: selectedTest.name,
-                config: selectedTest.config
-            });
-            // Show success briefly
-            const btn = document.getElementById('save-btn');
-            if (btn) {
-                const originalText = btn.innerHTML;
-                btn.innerHTML = 'SAVED!';
-                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
-            }
-        } catch (err) {
-            console.error('Failed to save');
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const handleExecute = async () => {
         if (!selectedTest) return;
         await executeTest(selectedTest.id, selectedEnvId || undefined);
@@ -164,7 +140,7 @@ const LoadTests: React.FC = () => {
 
     const updateConfig = (field: string, value: any) => {
         if (!selectedTest) return;
-        updateTest(selectedTest.id, {
+        updateLocalTest(selectedTest.id, {
             config: { ...selectedTest.config, [field]: value }
         });
     };
@@ -251,7 +227,7 @@ const LoadTests: React.FC = () => {
                                 <input
                                     type="text"
                                     value={selectedTest.name}
-                                    onChange={(e) => updateTest(selectedTest.id, { name: e.target.value })}
+                                    onChange={(e) => updateLocalTest(selectedTest.id, { name: e.target.value })}
                                     className="bg-transparent border-none text-xs font-mono font-bold text-primary-text focus:outline-none focus:ring-1 focus:ring-accent/30 px-2 flex-1"
                                 />
                             </div>
@@ -269,16 +245,6 @@ const LoadTests: React.FC = () => {
                                         ))}
                                     </select>
                                 </div>
-                                <Button
-                                    id="save-btn"
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    variant="secondary"
-                                    className="px-4 text-[10px] uppercase tracking-widest h-full"
-                                >
-                                    <Save size={14} className="mr-2" />
-                                    SAVE
-                                </Button>
                                 <Button
                                     onClick={handleExecute}
                                     disabled={executing}

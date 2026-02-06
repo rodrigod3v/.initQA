@@ -40,6 +40,7 @@ export interface RequestModel {
     id: string;
     name?: string;
     method: string;
+    protocol?: 'REST' | 'GRAPHQL' | 'GRPC';
     url: string;
     headers: any;
     body: any; // Data

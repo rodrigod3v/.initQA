@@ -22,10 +22,12 @@ interface LoadTestState {
     lastResult: any | null;
     history: any[];
     error: string | null;
+    syncStatus: 'idle' | 'saving' | 'saved' | 'error';
 
     fetchTests: (projectId: string) => Promise<void>;
     fetchHistory: (testId: string) => Promise<void>;
     createTest: (test: Partial<LoadTest>) => Promise<void>;
+    updateLocalTest: (id: string, updates: Partial<LoadTest>) => void;
     updateTest: (id: string, updates: Partial<LoadTest>) => Promise<void>;
     executeTest: (id: string, envId?: string) => Promise<void>;
     deleteTest: (id: string) => Promise<void>;
@@ -33,6 +35,9 @@ interface LoadTestState {
     selectTest: (test: LoadTest | null) => void;
     setLastExecution: (result: any) => void;
 }
+
+// Debounce timer
+let saveTimeout: any = null;
 
 export const useLoadTestStore = create<LoadTestState>((set, get) => ({
     tests: [],
@@ -42,6 +47,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
     lastResult: null,
     history: [],
     error: null,
+    syncStatus: 'idle',
 
     fetchTests: async (projectId: string) => {
         set({ isLoading: true, error: null });
@@ -84,18 +90,33 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
         }
     },
 
-    updateTest: async (id: string, updates: Partial<LoadTest>) => {
-        try {
-            // Optimistic update
-            set(state => ({
-                tests: state.tests.map(t => t.id === id ? { ...t, ...updates } : t),
-                selectedTest: state.selectedTest?.id === id ? { ...state.selectedTest, ...updates } as LoadTest : state.selectedTest
-            }));
+    updateLocalTest: (id, updates) => {
+        // Optimistic update
+        set(state => ({
+            tests: state.tests.map(t => t.id === id ? { ...t, ...updates } : t),
+            selectedTest: state.selectedTest?.id === id ? { ...state.selectedTest, ...updates } as LoadTest : state.selectedTest,
+            syncStatus: 'saving'
+        }));
 
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+            await get().updateTest(id, updates);
+        }, 1000);
+    },
+
+    updateTest: async (id: string, updates: Partial<LoadTest>) => {
+        set({ syncStatus: 'saving' });
+        try {
             await api.patch(`/load-tests/${id}`, updates);
+            set({ syncStatus: 'saved', error: null });
+
+            setTimeout(() => {
+                if (get().syncStatus === 'saved') {
+                    set({ syncStatus: 'idle' });
+                }
+            }, 2000);
         } catch (err) {
-            set({ error: 'Failed to update test' });
-            // Revert would be nice here but keeping it simple for now
+            set({ error: 'Failed to update test', syncStatus: 'error' });
         }
     },
 

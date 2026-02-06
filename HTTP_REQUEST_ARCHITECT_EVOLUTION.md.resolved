@@ -1,0 +1,136 @@
+# Evolução do HTTP Request Architect - Documentação Técnica
+
+Este documento registra as mudanças arquiteturais e as capacidades funcionais introduzidas no HTTP Request Architect do `.initQA` para competir com ferramentas modernas como Postman e Insomnia por meio de automação avançada.
+
+---
+
+## 🚀 Funcionalidades Principais
+
+### 1. Magic Assert (Auto-Geração)
+Reduz o trabalho repetitivo sugerindo testes automaticamente com base no payload e no status da resposta.
+
+- **Asserções de Status**: Detecta o status HTTP retornado e cria um teste `pm.response.to.have.status(code)`.
+- **Asserções de Contrato/Tipo**: Percorre o corpo da resposta JSON e gera asserções de verificação de tipo (`to.be.a('string')`, `to.be.an('array')`, etc.).
+- **Validação de Propriedades**: Garante que campos específicos estejam presentes no objeto de resposta.
+
+### 2. Encadeamento Dinâmico (Magic Chain)
+Facilita o fluxo entre requisições persistindo dados extraídos em variáveis de ambiente.
+
+- **Extensão do Sandbox**: O objeto `pm` no sandbox de teste foi estendido com `pm.environment.set(key, value)` e `pm.environment.get(key)`.
+- **Persistência no Banco de Dados**: Qualquer variável definida via `pm.environment.set` é salva automaticamente no ambiente ativo no banco de dados durante a execução.
+- **Detecção Inteligente**: A interface identifica campos como `token`, [id](file:///c:/Users/777/.gemini/antigravity/scratch/initQA/backend/src/request/execution/execution.service.ts#91-93) ou `user_id` nas respostas e oferece um botão flutuante de um clique para encadeá-los.
+
+### 3. Motor Multi-Protocolo (GraphQL & gRPC)
+Expande as capacidades do arquiteto além das APIs REST padrão.
+
+- **Suporte a GraphQL**: Detecção automática do protocolo GraphQL. Ele envolve o corpo bruto em uma estrutura JSON `{query, variables}` e a envia como uma requisição `POST`.
+- **Troca de Protocolo**: Um novo seletor de interface permite alternar entre REST, GRAPHQL e GRPC ao nível da requisição.
+
+---
+
+## 🛠️ Detalhes da Implementação
+
+### Camada de Banco de Dados (`Prisma`)
+- **Atualização do Modelo**: Adicionado o campo `protocol` ao modelo [Request](file:///c:/Users/777/.gemini/antigravity/scratch/initQA/frontend/src/stores/requestStore.ts#101-108).
+- **Valor Padrão**: O padrão é `REST` para compatibilidade com versões anteriores.
+
+### Lógica do Backend ([ExecutionService](file:///c:/Users/777/.gemini/antigravity/scratch/initQA/backend/src/request/execution/execution.service.ts#7-287))
+- **Contexto do Sandbox**: Injetado o objeto `environment` no contexto da `vm`.
+- **Persistência Atômica**: O serviço monitora a flag `variablesChanged` durante a execução do script e realiza uma atualização no Prisma se houver extração.
+- **Middleware GraphQL**: Lógica adicionada para lidar com a normalização da query antes da chamada `axios`.
+
+### Interface Frontend (`React`)
+- **Seletor de Protocolo**: Integrado na barra de URL para alta visibilidade.
+- **Overlays Dinâmicos**: Implementados botões flutuantes posicionados absolutamente sobre o Monaco Editor na aba de resposta para detecção de "Magic Chain".
+- **Injetor de Script**: Lógica para concatenar novos testes ao `testScript` existente sem sobrescrever o código escrito pelo usuário.
+
+---
+
+## 📖 Como Usar
+
+### Gerando Testes Automaticamente
+1. Execute uma requisição para obter uma resposta.
+2. Abra a aba **Functional** no painel de resultados.
+3. Clique no botão **`MAGIC_ASSERT`**.
+4. O sistema irá anexar asserções padronizadas ao seu script de teste.
+
+### Encadeando Variáveis
+1. Execute uma requisição (ex: `POST /auth/login`).
+2. Na aba **Response**, procure por um botão flutuante como **`CHAIN_TOKEN`**.
+3. Clique nele para adicionar automaticamente a lógica de extração ao seu script de teste.
+4. Em requisições subsequentes, use a sintaxe `{{token}}` na URL, Cabeçalhos ou Corpo.
+
+### Executando Queries GraphQL
+1. Crie uma nova requisição.
+2. Alterne o seletor de protocolo de `REST` para `GRAPHQL`.
+3. Cole sua query diretamente na aba **Data**.
+4. Clique em **EXECUTE**. Nenhuma configuração manual de `POST` ou `Content-Type` é necessária.
+
+---
+
+## 🌟 Exemplo Real: Fluxo de Autenticação
+
+Imagine que você está testando uma API de E-commerce. Veja como usar as novas funções para automatizar o teste:
+
+### Passo 1: Login e Extração de Token
+1. Crie uma requisição `POST /login`.
+2. Após executar, a resposta retorna:
+   ```json
+   {
+     "access_token": "ey123...",
+     "user_id": "99"
+   }
+   ```
+3. Clique no botão flutuante **`CHAIN_ACCESS_TOKEN`** que aparecerá sobre a resposta.
+4. O sistema injetará automaticamente no seu script:
+   ```javascript
+   pm.environment.set("access_token", pm.response.json().access_token);
+   ```
+
+### Passo 2: Verificação Automática (Magic Assert)
+1. Clique em **`MAGIC_ASSERT`**.
+2. O sistema gerará testes para garantir que o token é uma string e que o status é 200:
+   ```javascript
+   pm.test("Status code is 200", () => {
+       pm.response.to.have.status(200);
+   });
+   pm.test("access_token has correct type", () => {
+       pm.expect(pm.response.json().access_token).to.be.a('string');
+   });
+   ```
+
+### Passo 3: Uso do Token em Outra Requisição
+1. Crie uma requisição `GET /profile`.
+2. Nos **Headers**, adicione:
+   - `Authorization`: `Bearer {{access_token}}`
+3. O sistema substituirá `{{access_token}}` pelo valor extraído no Passo 1 automaticamente!
+
+---
+
+## 🏆 Caso de Teste Avançado: Fluxo de Pedidos (Multi-Protocolo)
+
+Este exemplo demonstra como a arquitetura permite criar fluxos complexos em minutos:
+
+| Ordem | Requisição | Protocolo | Ação Cloud-Engine | Resultado |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | `POST /login` | **REST** | Clique em `CHAIN_TOKEN` | `{{token}}` salvo no ambiente. |
+| 2 | `POST /graphql` | **GRAPHQL** | Envie query de produtos | Clique em `CHANGE_PROD_ID` no 1º item. |
+| 3 | `POST /orders` | **REST** | Use `{{token}}` e `{{prod_id}}` | Clique em `MAGIC_ASSERT` para validar contrato. |
+
+### Exemplo de Script Gerado no Passo 3:
+```javascript
+// Gerado via Magic Chain no Passo 1 e 2
+const token = pm.environment.get("token");
+const productId = pm.environment.get("prod_id");
+
+// Gerado via Magic Assert
+pm.test("Pedido criado com sucesso", () => {
+    pm.response.to.have.status(201);
+    pm.expect(pm.response.json()).to.have.property('order_id');
+});
+```
+
+---
+
+> [!TIP]
+> Use o **Magic Assert** primeiro para construir o esqueleto do seu conjunto de testes e, em seguida, refine a lógica de negócios específica manualmente no editor **Functional**.

@@ -24,10 +24,11 @@ export const httpRequestStyles = {
     editorContainer: "flex-1 flex flex-col min-w-0 gap-4 overflow-hidden min-h-[400px] lg:min-h-0",
 
     // Controls
-    controls: "py-2 md:py-4 border-b border-main/10 flex flex-col gap-4 bg-deep/20 shrink-0",
+    controls: "py-2 md:py-4 border-b border-main/10 flex flex-col gap-4 bg-deep/20 shrink-0 relative z-20",
     urlBar: "flex flex-col sm:flex-row items-stretch sm:items-center gap-2",
-    methodSelect: "bg-surface border-sharp border-main/20 px-3 md:px-6 h-10 md:h-12 font-mono text-xs md:text-sm text-accent focus:outline-none focus:border-accent/40 w-full sm:w-auto",
-    urlInput: "flex-1 bg-surface border-sharp border-main/20 px-4 h-10 md:h-12 font-mono text-xs md:text-sm text-primary-text focus:outline-none focus:border-accent/40 placeholder:opacity-20 w-full",
+    methodSelect: "bg-surface border-sharp border-main/20 px-3 md:px-6 h-10 md:h-12 font-mono text-xs md:text-sm text-accent focus:outline-none focus:border-accent/40 w-full sm:w-auto shrink-0",
+    protocolSelect: "bg-deep border-sharp border-main/20 px-3 h-10 md:h-12 font-mono text-[10px] text-secondary-text focus:outline-none focus:border-accent/40 w-full sm:w-auto uppercase tracking-widest shrink-0",
+    urlInput: "flex-1 bg-surface border-sharp border-main/20 px-4 h-10 md:h-12 font-mono text-xs md:text-sm text-primary-text focus:outline-none focus:border-accent/40 placeholder:opacity-20 min-w-0 flex-shrink",
     actionButton: "h-10 md:h-12 px-6 md:px-10 text-[10px] md:text-xs uppercase tracking-[0.2em] w-full sm:w-auto",
     envSelect: "appearance-none bg-deep border border-main/10 px-4 font-mono font-bold text-accent text-[11px] focus:outline-none focus:border-accent/50 cursor-pointer h-9 px-8 pr-10",
 

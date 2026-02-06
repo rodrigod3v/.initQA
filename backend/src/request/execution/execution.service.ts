@@ -39,6 +39,28 @@ export class ExecutionService {
     const headers = this.utilsService.replaceVariables(request.headers, variables);
     const body = this.utilsService.replaceVariables(request.body, variables);
 
+    // Handle Protocol specific logic
+    let effectiveMethod = request.method;
+    let effectiveBody = body;
+    const isGraphQL = (request as any).protocol === 'GRAPHQL';
+
+    if (isGraphQL) {
+      effectiveMethod = 'POST';
+      // If it's a string, try to wrap it in a GQL payload if it's not already
+      if (typeof effectiveBody === 'string') {
+        try {
+          const parsed = JSON.parse(effectiveBody);
+          if (!parsed.query) {
+            effectiveBody = { query: effectiveBody };
+          }
+        } catch (e) {
+          effectiveBody = { query: effectiveBody };
+        }
+      } else if (effectiveBody && !effectiveBody.query) {
+        effectiveBody = { query: JSON.stringify(effectiveBody) };
+      }
+    }
+
     // Build final headers object
     const finalHeaders = {
       'Accept': 'application/json, text/plain, */*',
@@ -62,10 +84,10 @@ export class ExecutionService {
         console.log(`[EXECUTION] [${request.method}] Attempt ${attempts}/${maxAttempts} for ${url}`);
 
         response = await axios({
-          method: request.method,
+          method: effectiveMethod,
           url,
           headers: finalHeaders,
-          data: body,
+          data: effectiveBody,
           timeout: 30000, // 30 seconds timeout
           validateStatus: () => true, // Capture all status codes
         });
@@ -111,8 +133,25 @@ export class ExecutionService {
 
     // RUN TEST SCRIPTS
     let testResults: any[] | null = null;
+    let updatedVariables = { ...variables };
+    let variablesChanged = false;
+
     if (request.testScript) {
-      testResults = this.runTestScript(request.testScript, response, duration);
+      const scriptResult = this.runTestScript(request.testScript, response, duration, updatedVariables);
+      testResults = scriptResult.results;
+      if (scriptResult.variablesChanged) {
+        variablesChanged = true;
+        updatedVariables = scriptResult.variables;
+      }
+    }
+
+    // Save environment updates if any
+    if (variablesChanged && validEnvironmentId) {
+      await this.prisma.environment.update({
+        where: { id: validEnvironmentId },
+        data: { variables: updatedVariables as any },
+      });
+      console.log(`[EXECUTION] Updated environment variables for ${validEnvironmentId}`);
     }
 
     // Save execution
@@ -134,8 +173,10 @@ export class ExecutionService {
     return execution;
   }
 
-  private runTestScript(script: string, response: any, duration: number) {
+  private runTestScript(script: string, response: any, duration: number, variables: any = {}) {
     const results: any[] = [];
+    let variablesChanged = false;
+    const currentVariables = { ...variables };
     const vm = require('vm');
     const Ajv = require('ajv');
     const ajv = new Ajv({ allErrors: true });
@@ -214,7 +255,14 @@ export class ExecutionService {
             results.push({ name, pass: false, error: err.message });
           }
         },
-        expect: createExpect
+        expect: createExpect,
+        environment: {
+          set: (key: string, value: any) => {
+            currentVariables[key] = value;
+            variablesChanged = true;
+          },
+          get: (key: string) => currentVariables[key]
+        }
       },
       console: {
         log: (...args: any[]) => console.log('[Sandbox]', ...args)
@@ -227,7 +275,12 @@ export class ExecutionService {
       results.push({ name: 'Script Error', pass: false, error: err.message });
     }
 
-    return results.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+    const finalResults = results.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+    return {
+      results: finalResults,
+      variables: currentVariables,
+      variablesChanged
+    };
   }
 
 }

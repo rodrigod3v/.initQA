@@ -1,6 +1,49 @@
 import React, { useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
+import { useRequestStore } from '@/stores/requestStore';
+import { useScenarioStore } from '@/stores/scenarioStore';
+import { useLoadTestStore } from '@/stores/loadTestStore';
+
+const GlobalSyncIndicator: React.FC = () => {
+    const requestSync = useRequestStore(state => state.syncStatus);
+    const scenarioSync = useScenarioStore(state => state.syncStatus);
+    const loadTestSync = useLoadTestStore(state => state.syncStatus);
+
+    const statuses = [requestSync, scenarioSync, loadTestSync];
+
+    let status: 'saving' | 'saved' | 'error' | 'idle' = 'idle';
+
+    if (statuses.includes('error')) status = 'error';
+    else if (statuses.includes('saving')) status = 'saving';
+    else if (statuses.includes('saved')) status = 'saved';
+
+    return (
+        <div className="flex items-center gap-2 px-3 py-1 bg-main/5 border border-main/10 rounded-sm h-6 animate-in fade-in slide-in-from-top-1">
+            {status === 'saving' ? (
+                <>
+                    <Loader2 size={10} className="animate-spin text-accent" />
+                    <span className="text-[8px] font-mono text-accent uppercase tracking-widest">SAVING...</span>
+                </>
+            ) : status === 'saved' ? (
+                <>
+                    <CheckCircle2 size={10} className="text-emerald-500" />
+                    <span className="text-[8px] font-mono text-emerald-500 uppercase tracking-widest">SYNCED</span>
+                </>
+            ) : status === 'error' ? (
+                <>
+                    <XCircle size={10} className="text-rose-500" />
+                    <span className="text-[8px] font-mono text-rose-500 uppercase tracking-widest">SYNC_ERR</span>
+                </>
+            ) : (
+                <>
+                    <div className="w-1 h-1 rounded-full bg-main/20" />
+                    <span className="text-[8px] font-mono text-secondary-text uppercase tracking-widest opacity-40">AUTO_SAVE_ON</span>
+                </>
+            )}
+        </div>
+    );
+};
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -34,9 +77,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         </button>
                         <span className="text-[10px] font-mono text-emerald-500 flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="hidden xs:inline">QA_ENGINE_READY</span>
-                            <span className="xs:hidden">READY</span>
+                            <span className="hidden xs:inline uppercase tracking-widest">Core_Engine_Ready</span>
                         </span>
+                        <div className="h-4 w-px bg-main/20 hidden sm:block" />
+                        <GlobalSyncIndicator />
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-[10px] font-mono text-secondary-text tracking-[0.2em] font-bold">
