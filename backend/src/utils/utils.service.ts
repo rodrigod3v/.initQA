@@ -40,13 +40,16 @@ export class UtilsService {
   /**
    * Simple Fuzzing: Mutates a JSON by removing a field or changing its type
    */
-  generateInvalidPayload(payload: any): any {
+  generateInvalidPayload(payload: unknown): unknown {
     if (!payload || typeof payload !== 'object') return payload;
 
     const keys = Object.keys(payload);
     if (keys.length === 0) return payload;
 
-    const mutated = JSON.parse(JSON.stringify(payload));
+    const mutated = JSON.parse(JSON.stringify(payload)) as Record<
+      string,
+      unknown
+    >;
     const randomKey = keys[Math.floor(Math.random() * keys.length)];
 
     const action = Math.random();
@@ -62,7 +65,10 @@ export class UtilsService {
     return mutated;
   }
 
-  replaceVariables(target: any, variables: Record<string, any>): any {
+  replaceVariables(
+    target: unknown,
+    variables: Record<string, unknown>,
+  ): unknown {
     if (!target) return target;
 
     let str = typeof target === 'string' ? target : JSON.stringify(target);
@@ -70,7 +76,8 @@ export class UtilsService {
     // Replace user variables
     Object.keys(variables).forEach((key) => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');
-      str = str.replace(placeholder, variables[key]);
+      const value = String(variables[key]);
+      str = str.replace(placeholder, value);
     });
 
     // Replace system variables

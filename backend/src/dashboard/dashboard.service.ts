@@ -233,11 +233,11 @@ export class DashboardService {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    const [currentExecs, previousExecs] = await Promise.all([
+    const [currentExecs, previousExecs] = (await Promise.all([
       this.prisma.requestExecution.findMany({
         where: { request: { projectId }, createdAt: { gte: oneWeekAgo } },
         include: { environment: { select: { name: true } } },
-      }) as unknown as RawExecution[],
+      }),
       this.prisma.requestExecution.findMany({
         where: {
           request: { projectId },
@@ -246,8 +246,8 @@ export class DashboardService {
             gte: new Date(oneWeekAgo.getTime() - 7 * 24 * 60 * 60 * 1000),
           },
         },
-      }) as unknown as RawExecution[],
-    ]);
+      }),
+    ])) as unknown as RawExecution[][];
 
     // 1. Health Score
     const successCount = currentExecs.filter(

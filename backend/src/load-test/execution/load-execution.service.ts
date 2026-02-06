@@ -26,19 +26,20 @@ export class LoadExecutionService {
 
     if (!test) throw new NotFoundException('Load test not found');
 
-    let variables = {};
-    if (environmentId) {
-      const environment = await this.prisma.environment.findUnique({
-        where: { id: environmentId },
-      });
-      variables = (environment?.variables as any) || {};
-    }
-
-    const config = test.config as any;
+    const variables =
+      (environmentId
+        ? (
+            await this.prisma.environment.findUnique({
+              where: { id: environmentId },
+            })
+          )?.variables
+        : {}) || {};
+    const config = test.config as Record<string, unknown>;
     const targetUrl = this.utilsService.replaceVariables(
-      config.targetUrl,
-      variables,
-    );
+      String(config.targetUrl),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      variables as any,
+    ) as string;
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'initqa-k6-'));
     const scriptPath = path.join(tempDir, 'script.js');
     const outputPath = path.join(tempDir, 'output.json');
@@ -51,7 +52,7 @@ import { sleep } from 'k6';
 export const options = {
   stages: ${JSON.stringify(config.stages || [{ duration: '30s', target: 20 }])},
   thresholds: {
-    http_req_duration: ['p(95)<${config.thresholdMs || 500}'],
+    http_req_duration: [\`p(95)<\${String(config.thresholdMs || '500')}\`],
   },
 };
 
@@ -75,22 +76,22 @@ export default function () {
       );
 
       if (fs.existsSync(outputPath)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         results = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
       } else {
         results = { rawOutput: stdout, errorOutput: stderr };
       }
     } catch (err: any) {
-      console.error('[LoadExecution] k6 execution failed:', err);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const errorMsg = String(err.message || '');
       status = 'CRASHED';
-      let errorMessage = err.message;
-      if (
-        err.message?.includes('not recognized') ||
-        err.message?.includes('enoent')
-      ) {
-        errorMessage =
+      let errorDisplay = errorMsg;
+      if (errorMsg.includes('not recognized') || errorMsg.includes('enoent')) {
+        errorDisplay =
           'k6 binary not found on system. Please install k6 (https://k6.io) to run load tests.';
       }
-      results = { error: errorMessage, stderr: err.stderr };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      results = { error: errorDisplay, stderr: err.stderr };
     } finally {
       // Simple cleanup
       try {
@@ -110,6 +111,7 @@ export default function () {
           loadTestId: test.id,
           status,
           duration,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           results: results,
         },
       });

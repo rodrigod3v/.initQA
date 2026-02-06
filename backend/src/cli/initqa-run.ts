@@ -72,8 +72,18 @@ async function run() {
       console.log('\n✨ Build passed! No structural violations found.');
       process.exit(0);
     }
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message;
+  } catch (err: unknown) {
+    let message = 'Unknown error';
+    if (err && typeof err === 'object') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if ('response' in (err as any) && (err as any).response?.data?.message) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        message = String((err as any).response.data.message);
+      } else if ('message' in (err as any)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        message = String((err as any).message);
+      }
+    }
     console.error('\n❌ Execution failed:', message);
     process.exit(1);
   }

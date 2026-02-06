@@ -31,7 +31,7 @@ export class UtilsController {
 
   @ApiOperation({ summary: 'Generate an invalid payload from a prototype' })
   @Post('generate/invalid-payload')
-  generateInvalidPayload(@Body() payload: any) {
+  generateInvalidPayload(@Body() payload: unknown): unknown {
     return this.utilsService.generateInvalidPayload(payload);
   }
 }

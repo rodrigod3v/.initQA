@@ -9,12 +9,13 @@ export class RequestService {
     name?: string;
     method: string;
     url: string;
-    headers?: any;
-    body?: any;
+    headers?: Record<string, unknown>;
+    body?: unknown;
     projectId: string;
   }) {
     return this.prisma.request.create({
-      data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: data as any,
     });
   }
 
@@ -30,10 +31,20 @@ export class RequestService {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(
+    id: string,
+    data: Partial<{
+      name: string;
+      method: string;
+      url: string;
+      headers: Record<string, unknown>;
+      body: unknown;
+    }>,
+  ) {
     return this.prisma.request.update({
       where: { id },
-      data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: data as any,
     });
   }
 

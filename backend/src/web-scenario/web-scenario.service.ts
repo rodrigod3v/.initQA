@@ -42,10 +42,14 @@ export class WebScenarioService {
     return scenario;
   }
 
-  async update(id: string, data: Partial<{ name: string; steps: any[] }>) {
+  async update(
+    id: string,
+    data: Partial<{ name: string; steps: Record<string, unknown>[] }>,
+  ) {
     return this.prisma.webScenario.update({
       where: { id },
-      data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: data as any,
     });
   }
 

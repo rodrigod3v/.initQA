@@ -31,12 +31,12 @@ export class WebExecutionService {
 
     if (!scenario) throw new NotFoundException('Scenario not found');
 
-    let variables = {};
+    let variables: Record<string, unknown> = {};
     if (environmentId) {
       const environment = await this.prisma.environment.findUnique({
         where: { id: environmentId },
       });
-      variables = (environment?.variables as any) || {};
+      variables = (environment?.variables as Record<string, unknown>) || {};
     }
 
     const startTime = Date.now();
@@ -68,11 +68,11 @@ export class WebExecutionService {
           const selector = this.utilsService.replaceVariables(
             step.selector,
             variables,
-          );
+          ) as string;
           const value = this.utilsService.replaceVariables(
             step.value,
             variables,
-          );
+          ) as string;
 
           logs.push({
             step: `STEP_${currentStepIdx}: ${step.type}`,
@@ -151,7 +151,10 @@ export class WebExecutionService {
 
           switch (step.type) {
             case 'GOTO':
-              await page.goto(value, { waitUntil: 'load', timeout: 60000 });
+              await page.goto(value, {
+                waitUntil: 'load',
+                timeout: 60000,
+              });
               break;
             case 'CLICK':
               await page.click(effectiveSelector, { force: true });
@@ -354,6 +357,7 @@ export class WebExecutionService {
       if (scenarioUpdated) {
         await this.prisma.webScenario.update({
           where: { id: scenario.id },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           data: { steps: updatedSteps as unknown as any },
         });
       }
@@ -361,12 +365,13 @@ export class WebExecutionService {
 
     const duration = Date.now() - startTime;
 
-    return this.prisma.webExecution.create({
+    await this.prisma.webExecution.create({
       data: {
         scenarioId: scenario.id,
         environmentId: environmentId || null,
         status,
         duration,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         logs: logs as any,
         screenshot: screenshotPath,
       },

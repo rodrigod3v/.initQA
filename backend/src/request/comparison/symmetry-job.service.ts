@@ -40,7 +40,13 @@ export class SymmetryJobService implements OnApplicationBootstrap {
 
   async runScheduledChecks() {
     // We use dynamic access to bypass linting if Prisma client hasn't been regenerated yet
-    const prismaAny = this.prisma as any;
+    const prismaAny = this.prisma as unknown as Record<
+      string,
+      {
+        findMany: (args: any) => Promise<any[]>;
+        update: (args: any) => Promise<any>;
+      }
+    >;
     if (!prismaAny.symmetryCheck) {
       this.logger.warn(
         'SymmetryCheck model not found in Prisma client. Skipping checks.',
@@ -84,7 +90,10 @@ export class SymmetryJobService implements OnApplicationBootstrap {
 
       const status = result.delta ? 'DRIFT' : 'SYNC';
 
-      const prismaAny = this.prisma as any;
+      const prismaAny = this.prisma as unknown as Record<
+        string,
+        { update: (args: any) => Promise<any> }
+      >;
       await prismaAny.symmetryCheck.update({
         where: { id: check.id },
         data: {
