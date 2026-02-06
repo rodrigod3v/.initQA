@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -15,5 +15,11 @@ export class DashboardController {
   @Get('stats')
   getStats() {
     return this.dashboardService.getStats();
+  }
+
+  @ApiOperation({ summary: 'Get executive dashboard statistics for a project' })
+  @Get('executive/:projectId')
+  getExecutiveStats(@Param('projectId') projectId: string) {
+    return this.dashboardService.getExecutiveStats(projectId);
   }
 }

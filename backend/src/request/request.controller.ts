@@ -50,6 +50,7 @@ export class RequestController {
       data.requestId,
       data.leftEnvId,
       data.rightEnvId,
+      data.maskingKeys,
     );
   }
 

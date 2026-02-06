@@ -8,6 +8,7 @@ import HttpRequestPage from './pages/HttpRequest';
 import Comparison from './pages/Comparison';
 import WebScenarios from './pages/WebScenarios';
 import LoadTests from './pages/LoadTests';
+import ExecutiveDashboard from './pages/ExecutiveDashboard';
 import Layout from '@/shared/ui/Layout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -37,6 +38,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <ProjectHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/executive"
+        element={
+          <ProtectedRoute>
+            <ExecutiveDashboard />
           </ProtectedRoute>
         }
       />

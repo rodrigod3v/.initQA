@@ -92,7 +92,6 @@ export class DashboardService {
     });
 
     // 4. Unstable Requests (last 50 executions, grouped by request)
-    // We'll calculate failure rate for requests that have at least 3 executions
     const recentRequestsExecs = await this.prisma.requestExecution.findMany({
         take: 200,
         orderBy: { createdAt: 'desc' },
@@ -117,32 +116,6 @@ export class DashboardService {
         .sort((a, b) => b.failureRate - a.failureRate)
         .slice(0, 5);
 
-    // 5. Failures by Environment
-    const envFailuresExecs = await this.prisma.requestExecution.findMany({
-        take: 100,
-        where: { status: { gte: 400 } },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            request: {
-                include: {
-                    project: {
-                        include: { environments: { select: { id: true, name: true } } }
-                    }
-                }
-            }
-        }
-    });
-
-    const envFailures = {};
-    // Since executions don't explicitly link to environment ID (only via variables/context which isn't stored as ID),
-    // this is a bit tricky. Usually, a request is executed in an environment. 
-    // Wait, looking at prisma schema... RequestExecution doesn't have envId.
-    // It should have! In previous steps, it was executed using an environment.
-    // Let's check if I should add it to the schema or if I can infer it.
-    // Actually, let's keep it simple for now and group by project since environment isn't explicitly in the execution record yet.
-    // UNLESS I add it now. But I shouldn't modify schema without reason.
-    // Let's check if anyone added it.
-    
     const totalExecs = apiExecCount + webExecCount;
     const failedApiCount = failedExecutions.reduce((acc, curr) => acc + curr._count.id, 0);
     const failedWebCount = await this.prisma.webExecution.count({ where: { status: 'FAILED' } });
@@ -185,5 +158,72 @@ export class DashboardService {
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => (b.count as number) - (a.count as number))
         .slice(0, 5);
+  }
+
+  async getExecutiveStats(projectId: string) {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const [currentExecs, previousExecs] = await Promise.all([
+      this.prisma.requestExecution.findMany({
+        where: { request: { projectId }, createdAt: { gte: oneWeekAgo } },
+        include: { environment: { select: { name: true } } }
+      }),
+      this.prisma.requestExecution.findMany({
+        where: { 
+          request: { projectId }, 
+          createdAt: { 
+            lt: oneWeekAgo, 
+            gte: new Date(oneWeekAgo.getTime() - 7 * 24 * 60 * 60 * 1000) 
+          } 
+        }
+      })
+    ]);
+
+    // 1. Health Score
+    const successCount = currentExecs.filter(e => e.status >= 200 && e.status < 300).length;
+    const currentHealth = currentExecs.length > 0 ? (successCount / currentExecs.length) * 100 : 100;
+    
+    const prevSuccessCount = previousExecs.filter(e => e.status >= 200 && e.status < 300).length;
+    const prevHealth = previousExecs.length > 0 ? (prevSuccessCount / previousExecs.length) * 100 : 100;
+
+    // 2. Performance Analysis
+    const avgDuration = currentExecs.length > 0 
+      ? currentExecs.reduce((acc, curr) => acc + curr.duration, 0) / currentExecs.length 
+      : 0;
+
+    // 3. Environment Gap
+    const envPerformance = {};
+    currentExecs.forEach(e => {
+      const name = e.environment?.name || 'GLOBAL';
+      if (!envPerformance[name]) envPerformance[name] = { total: 0, count: 0 };
+      envPerformance[name].total += e.duration;
+      envPerformance[name].count++;
+    });
+
+    const envGaps = Object.entries(envPerformance).map(([name, stats]: [string, any]) => ({
+      name,
+      avg: Math.round(stats.total / stats.count)
+    }));
+
+    return {
+      healthScore: Math.round(currentHealth),
+      healthTrend: Math.round(currentHealth - prevHealth),
+      avgLatency: Math.round(avgDuration),
+      executionsTotal: currentExecs.length,
+      environmentGaps: envGaps.sort((a, b) => b.avg - a.avg),
+      history: this.groupExecutionsByDay(currentExecs)
+    };
+  }
+
+  private groupExecutionsByDay(execs: any[]) {
+    const groups = {};
+    execs.forEach(e => {
+      const date = e.createdAt.toISOString().split('T')[0];
+      if (!groups[date]) groups[date] = { date, passed: 0, failed: 0 };
+      if (e.status >= 200 && e.status < 300) groups[date].passed++;
+      else groups[date].failed++;
+    });
+    return Object.values(groups).sort((a: any, b: any) => a.date.localeCompare(b.date));
   }
 }

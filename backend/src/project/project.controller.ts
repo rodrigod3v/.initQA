@@ -47,4 +47,13 @@ export class ProjectController {
   removeEnvironment(@Param('id') id: string) {
     return this.projectService.removeEnvironment(id);
   }
+
+  @ApiOperation({ summary: 'Run all requests in a project' })
+  @Post(':id/run-all')
+  runAll(
+    @Param('id') id: string,
+    @Body('environmentId') environmentId?: string,
+  ) {
+    return this.projectService.runAll(id, environmentId);
+  }
 }

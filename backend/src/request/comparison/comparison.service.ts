@@ -8,21 +8,44 @@ export class ComparisonService {
 
   constructor(private executionService: ExecutionService) {}
 
-  async compare(requestId: string, leftEnvId: string, rightEnvId: string) {
+  async compare(requestId: string, leftEnvId: string, rightEnvId: string, maskingKeys: string[] = []) {
     const [leftExecution, rightExecution] = await Promise.all([
       this.executionService.execute(requestId, leftEnvId),
       this.executionService.execute(requestId, rightEnvId),
     ]);
 
-    const leftData = (leftExecution.response as any)?.data;
-    const rightData = (rightExecution.response as any)?.data;
+    let leftData = (leftExecution.response as any)?.data;
+    let rightData = (rightExecution.response as any)?.data;
+
+    if (maskingKeys.length > 0) {
+      leftData = this.maskData(leftData, maskingKeys);
+      rightData = this.maskData(rightData, maskingKeys);
+    }
 
     const delta = this.differ.diff(leftData, rightData);
 
     return {
-      left: leftExecution,
-      right: rightExecution,
+      left: { ...(leftExecution as any), response: { ...(leftExecution.response as any), data: leftData } },
+      right: { ...(rightExecution as any), response: { ...(rightExecution.response as any), data: rightData } },
       delta,
     };
+  }
+
+  private maskData(data: any, keys: string[]): any {
+    if (!data || typeof data !== 'object') return data;
+    
+    if (Array.isArray(data)) {
+      return data.map(item => this.maskData(item, keys));
+    }
+
+    const masked = { ...data };
+    for (const key in masked) {
+      if (keys.includes(key)) {
+        masked[key] = '***MASKED***';
+      } else if (typeof masked[key] === 'object') {
+        masked[key] = this.maskData(masked[key], keys);
+      }
+    }
+    return masked;
   }
 }
