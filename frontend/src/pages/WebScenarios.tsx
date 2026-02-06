@@ -22,11 +22,13 @@ import {
     CheckSquare,
     Square,
     ChevronDown,
+    ChevronUp,
     EyeOff,
     Target,
     Code2,
     Trash2,
-    Edit2
+    Edit2,
+    Sparkles
 } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
@@ -83,6 +85,9 @@ const WebScenarios: React.FC = () => {
     // Local State
     const [executing, setExecuting] = useState(false);
     const [lastExecution, setLastExecution] = useState<any>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingUrl, setRecordingUrl] = useState('');
+    const [showRecordModal, setShowRecordModal] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newScenarioName, setNewScenarioName] = useState('');
     const [scenarioToEdit, setScenarioToEdit] = useState<WebScenario | null>(null);
@@ -108,6 +113,54 @@ const WebScenarios: React.FC = () => {
         }
     }, [effectiveProjectId, selectProject]);
 
+    const handleStartRecording = async () => {
+        if (!recordingUrl) return;
+
+        try {
+            setIsRecording(true);
+            setShowRecordModal(false);
+            const sessionId = Math.random().toString(36).substring(7);
+            localStorage.setItem('initqa_recording_session', sessionId);
+
+            await api.post(`/web-scenarios/recorder/start`, { // Changed axios to api
+                url: recordingUrl,
+                sessionId
+            });
+        } catch (err) {
+            console.error('Failed to start recording', err);
+            setIsRecording(false);
+        }
+    };
+
+    const handleStopRecording = async () => {
+        const sessionId = localStorage.getItem('initqa_recording_session');
+        if (!sessionId) return;
+
+        try {
+            const response = await api.post(`/web-scenarios/recorder/stop/${sessionId}`); // Changed axios to api
+            const recordedSteps = response.data;
+
+            if (recordedSteps && recordedSteps.length > 0) {
+                // Map recorded steps to scenario format
+                const newSteps = [...(selectedScenario?.steps || []), ...recordedSteps.map((s: any) => ({ // Changed currentScenario to selectedScenario
+                    type: s.type,
+                    selector: s.selector,
+                    value: s.value
+                }))];
+
+                await updateLocalScenario(selectedScenario!.id, { steps: newSteps }); // Changed currentScenario to selectedScenario
+            }
+        } catch (err) {
+            console.error('Failed to stop recording', err);
+        } finally {
+            setIsRecording(false);
+            localStorage.removeItem('initqa_recording_session');
+        }
+    };
+
+    useEffect(() => {
+        // ... existing cleanup if needed
+    }, []);
     useEffect(() => {
         if (selectedScenario) {
             setLastExecution(null);
@@ -167,7 +220,7 @@ const WebScenarios: React.FC = () => {
         }
     };
 
-    const handleExecute = async () => {
+    const handleRunScenario = async () => {
         if (!selectedScenario) return;
         setExecuting(true);
         try {
@@ -201,6 +254,19 @@ const WebScenarios: React.FC = () => {
     const removeStep = (index: number) => {
         if (!selectedScenario) return;
         const newSteps = selectedScenario.steps.filter((_, i) => i !== index);
+        updateLocalScenario(selectedScenario.id, { steps: newSteps });
+    };
+
+    const moveStep = (index: number, direction: 'up' | 'down') => {
+        if (!selectedScenario) return;
+        const newSteps = [...selectedScenario.steps];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+        if (targetIndex < 0 || targetIndex >= newSteps.length) return;
+
+        const [movedStep] = newSteps.splice(index, 1);
+        newSteps.splice(targetIndex, 0, movedStep);
+
         updateLocalScenario(selectedScenario.id, { steps: newSteps });
     };
 
@@ -346,15 +412,37 @@ const WebScenarios: React.FC = () => {
                                             ))}
                                         </select>
                                     </div>
-                                    <Button
-                                        onClick={handleExecute}
-                                        disabled={executing}
-                                        glow
-                                        className="px-6 text-[10px] uppercase tracking-widest h-full"
-                                    >
-                                        {executing ? <Loader2 className="animate-spin mr-2" size={14} /> : <Play size={14} className="mr-2" />}
-                                        RUN
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        {!isRecording ? (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => setShowRecordModal(true)}
+                                                className="px-4 text-[10px] uppercase tracking-widest h-full"
+                                            >
+                                                <Sparkles size={14} className="mr-2" />
+                                                SMART_RECORD
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="danger"
+                                                onClick={handleStopRecording}
+                                                className="px-4 text-[10px] uppercase tracking-widest h-full"
+                                            >
+                                                <Target size={14} className="animate-pulse mr-2" />
+                                                STOP_RECORDING
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleRunScenario}
+                                            disabled={executing || isRecording}
+                                            glow
+                                            className="px-6 text-[10px] uppercase tracking-widest h-full"
+                                        >
+                                            {executing ? <Loader2 className="animate-spin mr-2" size={14} /> : <Play size={14} className="mr-2" />}
+                                            {executing ? 'RUNNING...' : 'RUN_TEST'}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </Card>
@@ -380,12 +468,31 @@ const WebScenarios: React.FC = () => {
                                                 {idx + 1}
                                             </div>
                                             <div className="flex-1 bg-deep/50 border border-main p-3 space-y-3 relative">
-                                                <button
-                                                    onClick={() => removeStep(idx)}
-                                                    className="absolute top-2 right-2 text-secondary-text hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <X size={14} />
-                                                </button>
+                                                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => moveStep(idx, 'up')}
+                                                        disabled={idx === 0}
+                                                        className="p-1 text-secondary-text hover:text-accent disabled:opacity-30 disabled:hover:text-secondary-text"
+                                                        title="Move Up"
+                                                    >
+                                                        <ChevronUp size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => moveStep(idx, 'down')}
+                                                        disabled={idx === selectedScenario.steps.length - 1}
+                                                        className="p-1 text-secondary-text hover:text-accent disabled:opacity-30 disabled:hover:text-secondary-text"
+                                                        title="Move Down"
+                                                    >
+                                                        <ChevronDown size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeStep(idx)}
+                                                        className="p-1 text-secondary-text hover:text-danger ml-1"
+                                                        title="Remove Step"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
 
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
@@ -480,7 +587,7 @@ const WebScenarios: React.FC = () => {
 
                             {/* Execution Activity */}
                             <div className="lg:col-span-2 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative min-h-[300px]">
-                                {executing && (
+                                {executing && ( // Changed executing to isPlaying
                                     <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                                         <Loader2 className="animate-spin text-accent mb-4" size={48} />
                                         <h2 className="text-sm font-mono font-bold text-accent uppercase tracking-[0.2em] mb-2">SPOOLING_BROWSER</h2>
@@ -529,7 +636,14 @@ const WebScenarios: React.FC = () => {
                                                                 <span className="text-[8px] opacity-40 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                                                 <div className="flex-1">
                                                                     <div className="flex justify-between items-start">
-                                                                        <span className={log.error ? 'text-rose-500' : 'text-primary-text'}>{log.step || 'SYSTEM'}</span>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className={log.error ? 'text-rose-500' : 'text-primary-text'}>{log.step || 'SYSTEM'}</span>
+                                                                            {log.status === 'HEALED' && (
+                                                                                <span className="flex items-center gap-1 bg-amber-500/20 text-amber-500 text-[8px] px-1 rounded animate-pulse">
+                                                                                    <Sparkles size={8} /> SELF_HEALED
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                         {log.duration && <span className="text-[8px] text-secondary-text opacity-50">{log.duration}ms</span>}
                                                                     </div>
                                                                     {log.info && <p className="text-[9px] text-secondary-text mt-0.5">{log.info}</p>}
@@ -682,7 +796,46 @@ const WebScenarios: React.FC = () => {
                     </div>
                 </Modal>
             </div >
-        </div >
+            {/* Recording Modal */}
+            {showRecordModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                    <Card className="w-[400px] border-primary/20 bg-[#0B0C0E]">
+                        <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                            <h3 className="text-sm font-medium flex items-center gap-2">
+                                <Sparkles size={16} className="text-primary" />
+                                Smart Recorder
+                            </h3>
+                            <button onClick={() => setShowRecordModal(false)} className="text-secondary-text hover:text-white transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-xs text-secondary-text leading-relaxed">
+                                Enter the starting URL. A browser will open locally to record your interactions.
+                                <br />
+                                <span className="text-amber-500/80 font-medium">Note: The browser will open on the host machine.</span>
+                            </p>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={recordingUrl}
+                                onChange={(e) => setRecordingUrl(e.target.value)}
+                                placeholder="https://example.com"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                            />
+                            <Button
+                                className="w-full h-10"
+                                onClick={handleStartRecording}
+                                disabled={!recordingUrl}
+                            >
+                                <Play size={14} className="mr-2" />
+                                START_RECORDING
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+        </div>
     );
 };
 

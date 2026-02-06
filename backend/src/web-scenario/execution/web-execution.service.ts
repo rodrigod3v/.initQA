@@ -37,13 +37,17 @@ export class WebExecutionService {
     });
     const page = await context.newPage();
 
+    let scenarioUpdated = false;
+    let updatedSteps: any[] = [];
+
     try {
       const steps = (scenario.steps as any[]) || [];
-      
-      let stepIndex = 1;
+      updatedSteps = [...steps];
+
+      let stepIndex = 0;
       for (const step of steps) {
         const stepStart = Date.now();
-        const currentStepIdx = stepIndex++;
+        const currentStepIdx = stepIndex + 1;
         try {
           // Replace variables in selector and value
           const selector = this.utilsService.replaceVariables(step.selector, variables);
@@ -51,48 +55,95 @@ export class WebExecutionService {
 
           logs.push({ 
             step: `STEP_${currentStepIdx}: ${step.type}`, 
-            info: `Initializing ${step.type}...`, 
+            info: `Attempting ${step.type} on ${selector || 'page'}...`, 
             timestamp: new Date().toISOString() 
           });
           
+          let elementFoundByHealing = false;
+          let effectiveSelector = selector;
+
+          // --- SELF-HEALING LOGIC ---
+          if (selector && !['GOTO', 'RELOAD', 'WAIT', 'ASSERT_URL', 'ASSERT_TITLE', 'KEY_PRESS'].includes(step.type)) {
+            try {
+              // Try to wait for the original selector briefly
+              await page.waitForSelector(selector, { state: 'attached', timeout: 2000 });
+            } catch (err) {
+              // Primary selector failed. Try Self-Healing if metadata exists.
+              if (step.metadata) {
+                logs.push({ 
+                  step: `STEP_${currentStepIdx}: SELF_HEALING`, 
+                  info: `Primary selector failed. Attempting recovery using metadata...`, 
+                  timestamp: new Date().toISOString() 
+                });
+
+                const { text, placeholder, role, name } = step.metadata;
+                const healingSelectors: string[] = [];
+                if (role && name) healingSelectors.push(`role=${role}[name="${name}"]`);
+                if (text) healingSelectors.push(`text="${text}"`);
+                if (placeholder) healingSelectors.push(`placeholder="${placeholder}"`);
+
+                for (const hSelector of healingSelectors) {
+                  try {
+                    await page.waitForSelector(hSelector, { state: 'visible', timeout: 2000 });
+                    effectiveSelector = hSelector;
+                    elementFoundByHealing = true;
+                    logs.push({ 
+                      step: `STEP_${currentStepIdx}: SELF_HEALING`, 
+                      info: `Recovered element using: ${hSelector}`, 
+                      status: 'HEALED',
+                      timestamp: new Date().toISOString() 
+                    });
+                    break;
+                  } catch (e) { continue; }
+                }
+
+                if (!elementFoundByHealing) {
+                  throw new Error(`Primary selector and recovery attempts failed for: ${selector}`);
+                }
+              } else {
+                throw err; // No metadata, rethrow original error
+              }
+            }
+          }
+
           switch (step.type) {
             case 'GOTO':
               await page.goto(value, { waitUntil: 'load', timeout: 60000 });
               break;
             case 'CLICK':
-              await page.click(selector, { force: true });
+              await page.click(effectiveSelector, { force: true });
               break;
             case 'DOUBLE_CLICK':
-              await page.dblclick(selector, { force: true });
+              await page.dblclick(effectiveSelector, { force: true });
               break;
             case 'RIGHT_CLICK':
-              await page.click(selector, { button: 'right', force: true });
+              await page.click(effectiveSelector, { button: 'right', force: true });
               break;
             case 'FILL':
-              await page.fill(selector, value);
+              await page.fill(effectiveSelector, value);
               break;
             case 'TYPE':
-              await page.type(selector, value);
+              await page.type(effectiveSelector, value);
               break;
             case 'KEY_PRESS':
               await page.keyboard.press(value);
               break;
             case 'HOVER':
-              await page.hover(selector);
+              await page.hover(effectiveSelector);
               break;
             case 'SELECT':
-              await page.selectOption(selector, value);
+              await page.selectOption(effectiveSelector, value);
               break;
             case 'CHECK':
-              await page.check(selector, { force: true });
+              await page.check(effectiveSelector, { force: true });
               break;
             case 'UNCHECK':
-              await page.uncheck(selector, { force: true });
+              await page.uncheck(effectiveSelector, { force: true });
               break;
             case 'SUBMIT':
               // Either click a submit button or press Enter in an input
-              if (selector) {
-                await page.click(selector);
+              if (effectiveSelector) {
+                await page.click(effectiveSelector);
               } else {
                 await page.keyboard.press('Enter');
               }
@@ -102,21 +153,21 @@ export class WebExecutionService {
               await page.reload({ waitUntil: 'load' });
               break;
             case 'ASSERT_VISIBLE':
-              await page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
+              await page.waitForSelector(effectiveSelector, { state: 'visible', timeout: 5000 });
               break;
             case 'ASSERT_HIDDEN':
-              await page.waitForSelector(selector, { state: 'hidden', timeout: 5000 });
+              await page.waitForSelector(effectiveSelector, { state: 'hidden', timeout: 5000 });
               break;
             case 'ASSERT_TEXT':
-              const text = await page.textContent(selector);
-              if (!text?.includes(value)) {
-                throw new Error(`Text "${value}" not found in ${selector}`);
+              const textContent = await page.textContent(effectiveSelector);
+              if (!textContent?.includes(value)) {
+                throw new Error(`Text "${value}" not found in ${effectiveSelector}`);
               }
               break;
             case 'ASSERT_VALUE':
-              const val = await page.inputValue(selector);
-              if (val !== value) {
-                throw new Error(`Value "${val}" does not match expected "${value}" in ${selector}`);
+              const inputVal = await page.inputValue(effectiveSelector);
+              if (inputVal !== value) {
+                throw new Error(`Value "${inputVal}" does not match expected "${value}" in ${effectiveSelector}`);
               }
               break;
             case 'ASSERT_URL':
@@ -126,9 +177,9 @@ export class WebExecutionService {
               }
               break;
             case 'ASSERT_TITLE':
-              const title = await page.title();
-              if (!title.includes(value)) {
-                throw new Error(`Title "${title}" does not include "${value}"`);
+              const titleValue = await page.title();
+              if (!titleValue.includes(value)) {
+                throw new Error(`Title "${titleValue}" does not include "${value}"`);
               }
               break;
             case 'WAIT':
@@ -136,18 +187,43 @@ export class WebExecutionService {
               await page.waitForTimeout(ms);
               break;
             case 'SCROLL':
-              await page.locator(selector).scrollIntoViewIfNeeded();
+              await page.locator(effectiveSelector).scrollIntoViewIfNeeded();
               break;
             default:
               logs.push({ step: step.type, error: 'Unknown step type', timestamp: new Date().toISOString() });
           }
+
+          // --- LEARNING PHASE (Metadata Collection) ---
+          if (effectiveSelector && !['GOTO', 'RELOAD', 'WAIT', 'ASSERT_URL', 'ASSERT_TITLE', 'KEY_PRESS'].includes(step.type)) {
+            try {
+              const element = page.locator(effectiveSelector).first();
+              const metadata = await element.evaluate(el => {
+                const htmlEl = el as HTMLElement;
+                return {
+                  text: (htmlEl.innerText || htmlEl.textContent || '').trim().substring(0, 50),
+                  placeholder: htmlEl.getAttribute('placeholder'),
+                  role: htmlEl.getAttribute('role') || htmlEl.tagName.toLowerCase(),
+                  name: htmlEl.getAttribute('name') || htmlEl.getAttribute('aria-label') || (htmlEl.innerText || htmlEl.textContent || '').trim().substring(0, 30)
+                };
+              });
+
+              if (JSON.stringify(step.metadata) !== JSON.stringify(metadata)) {
+                updatedSteps[stepIndex] = { ...step, metadata };
+                scenarioUpdated = true;
+              }
+            } catch (learnErr) {
+              // Non-blocking
+              console.warn('Learning failed for step', stepIndex, learnErr.message);
+            }
+          }
           
           logs.push({ 
             step: `STEP_${currentStepIdx}: ${step.type}`, 
-            status: 'OK', 
+            status: elementFoundByHealing ? 'HEALED' : 'OK', 
             duration: Date.now() - stepStart,
             timestamp: new Date().toISOString() 
           });
+
         } catch (stepError) {
           status = 'FAILED';
           logs.push({ 
@@ -167,6 +243,7 @@ export class WebExecutionService {
           
           break; // Stop scenario execution on first error
         }
+        stepIndex++;
       }
     } catch (err) {
       status = 'FAILED';
@@ -182,6 +259,14 @@ export class WebExecutionService {
         }
       }
       await browser.close();
+
+      // If we learned new metadata, update the scenario
+      if (scenarioUpdated) {
+        await this.prisma.webScenario.update({
+          where: { id: scenario.id },
+          data: { steps: updatedSteps as any }
+        });
+      }
     }
 
     const duration = Date.now() - startTime;
