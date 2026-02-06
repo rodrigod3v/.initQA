@@ -15,7 +15,9 @@ import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { Tabs } from '@/shared/ui/Tabs';
 import { Modal } from '@/shared/ui/Modal';
+import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 import { useLoadTestStore } from '@/stores/loadTestStore';
+import { Trash2, AlertTriangle } from 'lucide-react';
 import { useProjectStore } from '@/stores/projectStore';
 
 interface Environment {
@@ -41,8 +43,11 @@ const LoadTests: React.FC = () => {
     const createTest = useLoadTestStore(state => state.createTest);
     const updateTest = useLoadTestStore(state => state.updateTest);
     const executeTest = useLoadTestStore(state => state.executeTest);
+    const deleteTest = useLoadTestStore(state => state.deleteTest);
+    const clearHistory = useLoadTestStore(state => state.clearHistory);
     const selectTest = useLoadTestStore(state => state.selectTest);
     const setLastExecution = useLoadTestStore(state => state.setLastExecution);
+    const error = useLoadTestStore(state => state.error);
 
     // Local UI State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -53,6 +58,11 @@ const LoadTests: React.FC = () => {
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
     const [environments, setEnvironments] = useState<Environment[]>([]);
     const [selectedEnvId, setSelectedEnvId] = useState<string>('');
+
+    // Confirmation Modals
+    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [testToDelete, setTestToDelete] = useState<any>(null);
+    const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
 
     useEffect(() => {
         const id = projectId || selectedProjectId;
@@ -132,6 +142,13 @@ const LoadTests: React.FC = () => {
                 name: selectedTest.name,
                 config: selectedTest.config
             });
+            // Show success briefly
+            const btn = document.getElementById('save-btn');
+            if (btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = 'SAVED!';
+                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            }
         } catch (err) {
             console.error('Failed to save');
         } finally {
@@ -196,15 +213,30 @@ const LoadTests: React.FC = () => {
                 </div>
                 <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-1">
                     {tests.map(t => (
-                        <button
+                        <div
                             key={t.id}
-                            onClick={() => selectTest(t)}
-                            className={`w-full text-left p-2 border-sharp transition-all flex items-center gap-2
-                                ${selectedTest?.id === t.id ? 'bg-accent/10 border-accent/30 text-accent' : 'text-secondary-text hover:bg-surface hover:text-primary-text'}`}
+                            className="group relative"
                         >
-                            <Zap size={14} className={selectedTest?.id === t.id ? 'text-accent' : 'text-secondary-text'} />
-                            <span className="text-[11px] font-mono truncate uppercase flex-1">{t.name}</span>
-                        </button>
+                            <button
+                                onClick={() => selectTest(t)}
+                                className={`w-full text-left p-2 border-sharp transition-all flex items-center gap-2 pr-8
+                                    ${selectedTest?.id === t.id ? 'bg-accent/10 border-accent/30 text-accent' : 'text-secondary-text hover:bg-surface hover:text-primary-text'}`}
+                            >
+                                <Zap size={14} className={selectedTest?.id === t.id ? 'text-accent' : 'text-secondary-text'} />
+                                <span className="text-[11px] font-mono truncate uppercase flex-1">{t.name}</span>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTestToDelete(t);
+                                    setIsConfirmDeleteOpen(true);
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-secondary-text hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Delete Test"
+                            >
+                                <Trash2 size={12} />
+                            </button>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -238,6 +270,7 @@ const LoadTests: React.FC = () => {
                                     </select>
                                 </div>
                                 <Button
+                                    id="save-btn"
                                     onClick={handleSave}
                                     disabled={saving}
                                     variant="secondary"
@@ -353,6 +386,17 @@ const LoadTests: React.FC = () => {
                                 ]}
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
+                                rightContent={
+                                    activeTab === 'history' && history.length > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => setIsConfirmClearOpen(true)}
+                                            className="h-full px-4 text-[8px] text-rose-500/60 hover:text-rose-500 border-none"
+                                        >
+                                            CLEAR_HISTORY
+                                        </Button>
+                                    )
+                                }
                             />
 
                             <div className="flex-1 overflow-auto bg-deep p-4 custom-scrollbar">
@@ -406,13 +450,55 @@ const LoadTests: React.FC = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
-                                            <Zap size={32} className="mb-4" />
-                                            <p className="text-[10px] font-mono uppercase tracking-[0.2em]">Cannon_Primed<br />[ Start Ramp Up ]</p>
+                                        <div className="h-full flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
+                                            <div className="opacity-20 mb-8">
+                                                <Zap size={48} className="mx-auto mb-4" />
+                                                <p className="text-xs font-mono uppercase tracking-[0.3em] font-bold">READY_TO_ENGAGE</p>
+                                            </div>
+
+                                            <div className="w-full p-6 border-sharp border-accent/20 bg-accent/5 space-y-4">
+                                                <h4 className="text-[11px] font-mono font-bold text-accent uppercase tracking-[0.2em] flex items-center justify-center gap-2">
+                                                    <AlertTriangle size={16} /> K6_DEPENDENCY_CHECK
+                                                </h4>
+
+                                                <p className="text-[10px] font-mono text-secondary-text uppercase leading-relaxed">
+                                                    To enable high-performance testing, <span className="text-primary-text underline">K6</span> must be active on your host system.
+                                                </p>
+
+                                                <div className="space-y-3">
+                                                    <div className="bg-deep/50 border border-main/30 p-3 text-left">
+                                                        <p className="text-[8px] text-secondary-text uppercase mb-2">Terminal Installation:</p>
+                                                        <code className="text-[10px] font-mono text-accent block bg-deep p-2 border border-accent/10">
+                                                            winget install k6
+                                                        </code>
+                                                    </div>
+
+                                                    <div className="p-3 border border-rose-500/30 bg-rose-500/10 text-left">
+                                                        <p className="text-[9px] font-mono text-rose-400 uppercase font-bold leading-tight flex items-start gap-2">
+                                                            <span>⚠️</span>
+                                                            <span>MUST RESTART IDE & TERMINAL AFTER INSTALLING TO UPDATE SYSTEM PATH.</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-[8px] font-mono text-secondary-text opacity-50 uppercase tracking-widest pt-2">
+                                                    [ Press FIRE_K6 when configuration is complete ]
+                                                </p>
+                                            </div>
                                         </div>
                                     )
                                 ) : (
                                     <div className="space-y-2">
+                                        {/* Error Alert if any */}
+                                        {error && (
+                                            <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded flex gap-3">
+                                                <AlertTriangle className="text-rose-500 shrink-0" size={16} />
+                                                <div className="text-[10px] font-mono text-rose-400 uppercase leading-relaxed">
+                                                    <p className="font-bold mb-1">EXECUTION_CRITICAL_FAILURE</p>
+                                                    <p>{error}</p>
+                                                </div>
+                                            </div>
+                                        )}
                                         {history.map(ex => (
                                             <button
                                                 key={ex.id}
@@ -478,6 +564,34 @@ const LoadTests: React.FC = () => {
                     </div>
                 </form>
             </Modal>
+
+            {/* Confirmation Modals */}
+            <ConfirmModal
+                isOpen={isConfirmDeleteOpen}
+                onClose={() => setIsConfirmDeleteOpen(false)}
+                onConfirm={() => {
+                    if (testToDelete) {
+                        deleteTest(testToDelete.id);
+                        setTestToDelete(null);
+                    }
+                }}
+                title="CONFIRM_TEST_DELETION"
+                message={`Are you sure you want to delete "${testToDelete?.name}"? All metrics and history will be permanently lost.`}
+                confirmText="DELETE_CAMPAIGN"
+            />
+
+            <ConfirmModal
+                isOpen={isConfirmClearOpen}
+                onClose={() => setIsConfirmClearOpen(false)}
+                onConfirm={() => {
+                    if (selectedTest) {
+                        clearHistory(selectedTest.id);
+                    }
+                }}
+                title="CLEAR_METRIC_HISTORY"
+                message="This will wipe all execution records for this test. The data cannot be recovered."
+                confirmText="PURGE_RECORDS"
+            />
         </div>
     );
 };

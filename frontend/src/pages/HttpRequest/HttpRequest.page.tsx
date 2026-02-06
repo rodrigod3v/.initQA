@@ -160,7 +160,9 @@ export const HttpRequestPage: React.FC = () => {
             onDelete={handleDelete}
             onUpdateRequest={updateRequestField}
             onCreateRequest={handleCreateRequest}
+            onDeleteRequest={deleteRequest}
             onClearHistory={handleClearHistory}
+            onViewHistory={useRequestStore.getState().viewExecution}
         />
     );
 };

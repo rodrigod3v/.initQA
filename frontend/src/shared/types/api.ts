@@ -42,9 +42,9 @@ export interface RequestModel {
     method: string;
     url: string;
     headers: any;
-    body: any;
-    testScript?: string;
-    expectedResponseSchema?: any;
+    body: any; // Data
+    testScript?: string; // Functional
+    expectedResponseSchema?: any; // Contract
     executions?: ExecutionResult[];
     projectId: string;
 }

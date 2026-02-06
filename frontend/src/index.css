@@ -10,6 +10,7 @@
   --color-warning: var(--warning);
   --color-primary-text: var(--text-main);
   --color-secondary-text: var(--text-sub);
+  --color-main: var(--border-main);
 }
 
 :root {

@@ -55,7 +55,7 @@ model Request {
 model RequestExecution {
   id               String       @id @default(uuid())
   requestId        String
-  request          Request      @relation(fields: [requestId], references: [id])
+  request          Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
   environmentId    String?
   environment      Environment? @relation(fields: [environmentId], references: [id])
   response         Json?
@@ -80,7 +80,7 @@ model WebScenario {
 model WebExecution {
   id         String       @id @default(uuid())
   scenarioId String
-  scenario   WebScenario  @relation(fields: [scenarioId], references: [id])
+  scenario   WebScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
   environmentId String?
   environment   Environment? @relation(fields: [environmentId], references: [id])
   status     String      // "SUCCESS", "FAILED"
@@ -104,7 +104,7 @@ model LoadTest {
 model LoadExecution {
   id         String   @id @default(uuid())
   loadTestId String
-  loadTest   LoadTest @relation(fields: [loadTestId], references: [id])
+  loadTest   LoadTest @relation(fields: [loadTestId], references: [id], onDelete: Cascade)
   status     String   // "FINISHED", "CRASHED"
   duration   Int
   results    Json?    // Serialized k6 JSON output

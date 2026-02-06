@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '@/shared/api';
+import { RequestService } from '@/services/RequestService';
 
 import type { RequestModel, ExecutionResult } from '@/shared/types/api';
 export type { RequestModel, ExecutionResult };
@@ -60,9 +60,9 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     fetchRequests: async (projectId: string) => {
         set({ isLoading: true });
         try {
-            const response = await api.get(projectId ? `/requests?projectId=${projectId}` : '/requests');
+            const data = await RequestService.findAll(projectId);
             set({
-                requests: response.data,
+                requests: data,
                 isLoading: false,
                 lastError: null
             });
@@ -70,10 +70,10 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             // Re-select if we have a selection to keep it fresh
             const currentSelected = get().selectedRequest;
             if (currentSelected) {
-                const found = response.data.find((r: RequestModel) => r.id === currentSelected.id);
+                const found = data.find((r: RequestModel) => r.id === currentSelected.id);
                 if (found) set({ selectedRequest: found });
-            } else if (response.data.length > 0) {
-                set({ selectedRequest: response.data[0] });
+            } else if (data.length > 0) {
+                set({ selectedRequest: data[0] });
             }
 
         } catch (error) {
@@ -91,8 +91,8 @@ export const useRequestStore = create<RequestState>((set, get) => ({
 
     fetchProjectHistory: async (projectId: string) => {
         try {
-            const response = await api.get(`/requests/project-history/${projectId}`);
-            set({ projectHistory: response.data });
+            const data = await RequestService.getProjectHistory(projectId);
+            set({ projectHistory: data });
         } catch (err) {
             console.error('Failed to fetch project history');
         }
@@ -139,15 +139,15 @@ export const useRequestStore = create<RequestState>((set, get) => ({
 
         set({ syncStatus: 'saving' });
         try {
-            const { id: reqId, projectId, executions, ...data } = request;
+            const { id: reqId, projectId, executions, ...dataToSave } = request;
 
             // Clean up JSON fields before sending if they are strings
-            const payload = { ...data };
+            const payload = { ...dataToSave };
             try { if (typeof payload.body === 'string') payload.body = JSON.parse(payload.body); } catch (e) { }
             try { if (typeof payload.headers === 'string') payload.headers = JSON.parse(payload.headers); } catch (e) { }
             try { if (typeof payload.expectedResponseSchema === 'string') payload.expectedResponseSchema = JSON.parse(payload.expectedResponseSchema); } catch (e) { }
 
-            await api.patch(`/requests/${id}`, payload);
+            await RequestService.update(id, payload);
             set({ syncStatus: 'saved', lastError: null });
 
             setTimeout(() => {
@@ -164,7 +164,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
 
     deleteRequest: async (id) => {
         try {
-            await api.delete(`/requests/${id}`);
+            await RequestService.delete(id);
             set((state) => {
                 const newRequests = state.requests.filter(r => r.id !== id);
                 return {
@@ -184,10 +184,8 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         await get().saveRequest(id);
 
         try {
-            const response = await api.post(`/requests/${id}/execute`, {
-                environmentId: envId
-            });
-            set({ lastResult: response.data });
+            const data = await RequestService.execute(id, envId);
+            set({ lastResult: data });
 
             // Refresh project-wide history
             const projectId = get().requests.find(r => r.id === id)?.projectId;
@@ -227,8 +225,8 @@ export const useRequestStore = create<RequestState>((set, get) => ({
                     // Stability delay
                     await new Promise(resolve => setTimeout(resolve, 500));
 
-                    const response = await api.post(`/requests/${req.id}/execute`, { environmentId: envId });
-                    console.log(`[STORE] Executed ${req.name}: Status ${response.status}`);
+                    await RequestService.execute(req.id, envId);
+                    console.log(`[STORE] Executed ${req.name}`);
 
                     // Update running state
                     set(state => {
@@ -266,7 +264,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
 
     clearProjectHistory: async (projectId: string) => {
         try {
-            await api.delete(`/requests/project-history/${projectId}`);
+            await RequestService.clearProjectHistory(projectId);
             set({ projectHistory: [] });
         } catch (err) {
             console.error('Failed to clear project history');

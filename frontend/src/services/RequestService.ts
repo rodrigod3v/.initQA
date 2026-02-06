@@ -1,7 +1,7 @@
-import client from './client';
-import type { RequestModel, ExecutionResult } from '../types/api';
+import client from '@/shared/api/client';
+import type { RequestModel, ExecutionResult } from '@/shared/types/api';
 
-export const requestService = {
+export const RequestService = {
     async findAll(projectId?: string): Promise<RequestModel[]> {
         const response = await client.get(projectId ? `/requests?projectId=${projectId}` : '/requests');
         return response.data;
@@ -40,3 +40,5 @@ export const requestService = {
         await client.delete(`/requests/project-history/${projectId}`);
     }
 };
+
+export default RequestService;

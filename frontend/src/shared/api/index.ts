@@ -1,2 +1,2 @@
 export { default } from './client';
-export { requestService } from './request.service';
+// requestService was removed as it was migrated to frontend/src/services

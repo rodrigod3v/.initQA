@@ -5,7 +5,6 @@ import {
     Activity,
     Layers,
     Plus,
-    ChevronDown,
     Trash2,
     Play,
     RotateCcw,
@@ -16,7 +15,9 @@ import {
 import { MonacoEditor } from '@/shared/ui/MonacoEditor';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
+import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 import { Input } from '@/shared/ui/Input';
+import { Tabs } from '@/shared/ui/Tabs';
 import { httpRequestStyles as S } from './HttpRequest.styles';
 import type { SyncStatus } from '@/stores/requestStore';
 import type { RequestModel, ExecutionResult } from '@/shared/types/api';
@@ -46,7 +47,9 @@ interface HttpRequestViewProps {
     onDelete: () => Promise<void>;
     onUpdateRequest: (field: keyof RequestModel, value: any) => void;
     onCreateRequest: (name: string) => Promise<void>;
+    onDeleteRequest: (id: string) => Promise<void>;
     onClearHistory: () => Promise<void>;
+    onViewHistory: (execution: ExecutionResult) => void;
 }
 
 export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
@@ -70,17 +73,23 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
         onDeleteEnv,
         onUpdateRequest,
         onCreateRequest,
-        onClearHistory
+        onDeleteRequest,
+        onClearHistory,
+        onViewHistory
     } = props;
 
     // Local UI State
-    const [activeEditorTab, setActiveEditorTab] = useState('payload');
+    const [activeEditorTab, setActiveEditorTab] = useState('massa');
     const [activeResultTab, setActiveResultTab] = useState('response');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newRequestName, setNewRequestName] = useState('');
     const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
     const [envName, setEnvName] = useState('');
-    const [envVariables, setEnvVariables] = useState('{\n  "BASE_URL": "https://api.example.com"\n}');
+    const [envVariables, setEnvVariables] = useState('{}');
+
+    // Confirm Modal States
+    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [requestToDelete, setRequestToDelete] = useState<{ id: string, name: string } | null>(null);
 
     // Auto-switch to history tab when running suite
     React.useEffect(() => {
@@ -124,63 +133,51 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                     </div>
                 </div>
 
-                <div className={`${S.headerActions} flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-3 py-2 lg:py-0 w-full lg:w-auto h-auto lg:h-full`}>
-                    <div className="flex items-center gap-2 lg:border-r border-main/50 pr-4 shrink-0 justify-between lg:justify-start">
-                        <span className="text-[11px] font-mono text-secondary-text uppercase tracking-widest hidden lg:inline">Project:</span>
+                <div className={S.headerActions}>
+                    <div className="flex items-center gap-3 bg-deep border border-main px-3 h-10 rounded-sm">
+                        <span className="text-[10px] font-mono text-secondary-text uppercase tracking-widest hidden lg:inline border-r border-main/50 pr-3">PROJECT:</span>
                         <select
                             value={projectId}
                             onChange={(e) => onSelectProject(e.target.value)}
-                            className="bg-deep border border-sharp border-main text-[11px] font-mono text-accent focus:outline-none px-2 py-1 flex-1 lg:flex-none lg:min-w-[120px] h-8"
+                            className="bg-transparent border-none text-[11px] font-mono text-accent focus:outline-none h-full outline-none"
                         >
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
 
                     {selectedRequest && (
-                        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full lg:w-auto">
-                            {/* Method & URL Group */}
-                            <div className="flex items-center gap-1.5 h-8 flex-1">
-                                <div className="relative h-full flex shrink-0 w-20 lg:w-auto">
-                                    <select
-                                        value={selectedRequest.method}
-                                        onChange={(e) => onUpdateRequest('method', e.target.value)}
-                                        className={S.methodSelect}
-                                    >
-                                        {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(m => <option key={m}>{m}</option>)}
-                                    </select>
-                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-accent/50 pointer-events-none" />
-                                </div>
-
+                        <div className="flex items-center gap-2 flex-1 max-w-2xl">
+                            <div className="flex-1 flex items-center bg-deep border border-main h-10 rounded-sm overflow-hidden px-1">
+                                <select
+                                    value={selectedRequest.method}
+                                    onChange={(e) => onUpdateRequest('method', e.target.value)}
+                                    className="bg-transparent border-none text-accent font-mono font-bold text-[11px] px-3 focus:outline-none cursor-pointer h-full outline-none"
+                                >
+                                    {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(m => <option key={m}>{m}</option>)}
+                                </select>
+                                <div className="w-px h-4 bg-main opacity-30" />
                                 <input
                                     type="text"
                                     value={selectedRequest.url}
                                     onChange={(e) => onUpdateRequest('url', e.target.value)}
-                                    className={`${S.urlInput} min-w-0`}
-                                    placeholder="HOST:PORT/ENDPOINT"
+                                    className="flex-1 bg-transparent border-none px-4 text-[11px] text-primary-text font-mono focus:outline-none placeholder:text-secondary-text/20"
+                                    placeholder="ENDPOINT_URL"
                                 />
-                            </div>
-
-                            {/* Controls Row (Env + Actions) */}
-                            <div className="flex items-center gap-2 h-8">
-                                <div className="relative h-full flex shrink-0">
-                                    <select
-                                        value={selectedEnvId}
-                                        onChange={(e) => onSelectEnv(e.target.value)}
-                                        className={`${S.envSelect} border border-sharp border-main bg-deep px-3 min-w-[100px] focus:border-accent/50`}
-                                    >
-                                        <option value="">NO_ENV</option>
-                                        {environments.map(env => (
-                                            <option key={env.id} value={env.id}>{env.name.toUpperCase()}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-accent/50 pointer-events-none" />
-                                </div>
-
-                                {/* Env Actions */}
-                                <div className="flex items-center bg-deep border border-sharp border-main h-full">
+                                <div className="w-px h-4 bg-main opacity-30 mx-1" />
+                                <select
+                                    value={selectedEnvId}
+                                    onChange={(e) => onSelectEnv(e.target.value)}
+                                    className="bg-transparent border-none text-accent font-mono text-[11px] px-3 focus:outline-none cursor-pointer h-full outline-none"
+                                >
+                                    <option value="">NO_ENV</option>
+                                    {environments.map(env => (
+                                        <option key={env.id} value={env.id}>{env.name.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                                <div className="flex items-center gap-1 border-l border-main h-full px-1">
                                     <button
                                         onClick={() => setIsEnvModalOpen(true)}
-                                        className="h-full px-2 hover:bg-accent/10 hover:text-accent text-secondary-text transition-colors border-r border-main/50"
+                                        className="p-1.5 hover:bg-accent/10 hover:text-accent text-secondary-text rounded transition-colors"
                                         title="New Environment"
                                     >
                                         <Plus size={14} />
@@ -188,37 +185,23 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                     <button
                                         onClick={async () => { if (selectedEnvId) await onDeleteEnv(selectedEnvId); }}
                                         disabled={!selectedEnvId}
-                                        className="h-full px-2 hover:bg-rose-500/10 hover:text-rose-500 text-secondary-text disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-secondary-text transition-colors"
+                                        className="p-1.5 hover:bg-rose-500/10 hover:text-rose-500 text-secondary-text disabled:opacity-30 rounded transition-colors"
                                         title="Delete Environment"
                                     >
                                         <Trash2 size={14} />
                                     </button>
                                 </div>
-
-                                <div className="w-px h-4 bg-main mx-1" />
-
-                                <Button
-                                    onClick={onRunTest}
-                                    disabled={isRunningTest}
-                                    glow
-                                    className="px-4 lg:px-6 text-[10px] uppercase tracking-widest h-8 gap-2 shrink-0"
-                                >
-                                    {isRunningTest ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                                    <span className="hidden sm:inline">EXECUTE</span>
-                                </Button>
-
-                                <Button
-                                    onClick={onRunSuite}
-                                    disabled={isRunningSuite}
-                                    variant="ghost"
-                                    className="h-8 w-8 lg:w-auto px-0 lg:px-3 text-[11px] uppercase tracking-widest gap-2 bg-deep/30 border-main hover:border-accent/30"
-                                    title="Run All Tests"
-                                >
-                                    {isRunningSuite ? <Loader2 size={12} className="animate-spin" /> : <Layers size={12} />}
-                                    <span className="hidden lg:inline">ALL</span>
-                                </Button>
-
                             </div>
+
+                            <Button
+                                onClick={onRunTest}
+                                disabled={isRunningTest}
+                                glow
+                                className="px-6 text-[10px] uppercase tracking-widest h-10 gap-2 shrink-0"
+                            >
+                                {isRunningTest ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                                EXECUTE
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -245,14 +228,26 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                             </div>
                         ) : (
                             requests.map(req => (
-                                <button
+                                <div
                                     key={req.id}
                                     onClick={() => onSelectRequest(req)}
-                                    className={S.requestItem(selectedRequest?.id === req.id)}
+                                    className={`${S.requestItem(selectedRequest?.id === req.id)} relative group cursor-pointer pr-8`}
                                 >
                                     <span className={S.requestMethodBadge(req.method)}>{req.method}</span>
                                     <span className={S.requestName}>{req.name || 'UNNAMED_PROC'}</span>
-                                </button>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRequestToDelete({ id: req.id, name: req.name || 'UNNAMED_PROC' });
+                                            setIsConfirmDeleteOpen(true);
+                                        }}
+                                        className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 hover:text-rose-500 transition-all"
+                                        title="Delete request"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
                             ))
                         )}
                     </div>
@@ -264,28 +259,32 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                         <>
 
                             {/* Main Tabs */}
+                            {/* Main Tabs */}
                             <div className={S.editorBody}>
-                                <div className={S.tabsContainer}>
-                                    <button
-                                        onClick={() => setActiveEditorTab('payload')}
-                                        className={S.tab(activeEditorTab === 'payload')}
-                                    >Body</button>
-                                    <button
-                                        onClick={() => setActiveEditorTab('headers')}
-                                        className={S.tab(activeEditorTab === 'headers')}
-                                    >Headers</button>
-                                    <button
-                                        onClick={() => setActiveEditorTab('contract')}
-                                        className={S.tab(activeEditorTab === 'contract')}
-                                    >Schema</button>
-                                    <button
-                                        onClick={() => setActiveEditorTab('tests')}
-                                        className={S.tab(activeEditorTab === 'tests')}
-                                    >Tests</button>
-                                </div>
+                                <Tabs
+                                    tabs={[
+                                        { id: 'massa', label: 'Data' },
+                                        { id: 'headers', label: 'Headers' },
+                                        { id: 'contract', label: 'Contract' },
+                                        { id: 'tests', label: 'Functional' }
+                                    ]}
+                                    activeTab={activeEditorTab}
+                                    onTabChange={setActiveEditorTab}
+                                    rightContent={
+                                        <Button
+                                            onClick={onRunSuite}
+                                            disabled={isRunningSuite}
+                                            variant="ghost"
+                                            className="h-full px-4 text-[10px] text-accent/60 hover:text-accent border-none"
+                                        >
+                                            {isRunningSuite ? <Loader2 size={12} className="animate-spin mr-2" /> : <Layers size={12} className="mr-2" />}
+                                            RUN_SUITE
+                                        </Button>
+                                    }
+                                />
 
                                 <div className="flex-1 min-h-0 relative">
-                                    {activeEditorTab === 'payload' && (
+                                    {activeEditorTab === 'massa' && (
                                         <MonacoEditor
                                             value={formatEditorValue(selectedRequest.body)}
                                             onChange={(val) => onUpdateRequest('body', val)}
@@ -342,20 +341,17 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                         )}
                     </div>
 
-                    <div className={S.tabsContainer}>
-                        <button
-                            onClick={() => setActiveResultTab('response')}
-                            className={S.tab(activeResultTab === 'response')}
-                        >Response</button>
-                        <button
-                            onClick={() => setActiveResultTab('assertions')}
-                            className={S.tab(activeResultTab === 'assertions')}
-                        >Assertions</button>
-                        <button
-                            onClick={() => setActiveResultTab('history')}
-                            className={S.tab(activeResultTab === 'history')}
-                        >History</button>
-                    </div>
+                    <Tabs
+                        tabs={[
+                            { id: 'response', label: 'Response' },
+                            { id: 'headers', label: 'Headers' },
+                            { id: 'contract', label: 'Contract' },
+                            { id: 'assertions', label: 'Functional' },
+                            { id: 'history', label: 'History' }
+                        ]}
+                        activeTab={activeResultTab}
+                        onTabChange={setActiveResultTab}
+                    />
 
                     <div className={S.resultsContent}>
                         {activeResultTab === 'response' && (
@@ -372,98 +368,106 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                             </div>
                         )}
 
+                        {activeResultTab === 'headers' && (
+                            <div className="flex-1 relative">
+                                {testResult ? (
+                                    <MonacoEditor
+                                        value={formatEditorValue(testResult.response.headers)}
+                                        onChange={() => { }}
+                                        readOnly={true}
+                                    />
+                                ) : (
+                                    <div className={S.editorPlaceholder}>No_Headers</div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeResultTab === 'contract' && (
+                            <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                                {!testResult ? (
+                                    <div className={S.editorPlaceholder}>NO_CONTRACT_DATA</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <h3 className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest pl-1">Contract_Validation</h3>
+                                        {testResult.validationResult ? (
+                                            <div className={`rounded-sm border ${testResult.validationResult.valid
+                                                ? 'bg-emerald-500/5 border-emerald-500/20'
+                                                : 'bg-rose-500/5 border-rose-500/20'}`}>
+                                                <div className={`px-3 py-2 flex items-center gap-2 border-b ${testResult.validationResult.valid
+                                                    ? 'border-emerald-500/10 text-emerald-500'
+                                                    : 'border-rose-500/10 text-rose-500'}`}>
+                                                    {testResult.validationResult.valid ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                                                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider">
+                                                        {testResult.validationResult.valid ? 'SCHEMA_MATCHED' : 'SCHEMA_VIOLATION'}
+                                                    </span>
+                                                </div>
+                                                {!testResult.validationResult.valid && testResult.validationResult.errors && (
+                                                    <div className="p-3 bg-deep/50 space-y-1">
+                                                        {testResult.validationResult.errors.map((err: any, idx: number) => (
+                                                            <div key={idx} className="font-mono text-[10px] text-rose-400 flex gap-2 items-start">
+                                                                <span className="opacity-50 mt-0.5">•</span>
+                                                                <span>
+                                                                    <span className="opacity-70">{err.instancePath}</span> {err.message}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="p-3 border border-dashed border-main text-secondary-text text-[10px] font-mono italic opacity-50 text-center">
+                                                No contract defined for this request
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {activeResultTab === 'assertions' && (
                             <div className="flex-1 overflow-auto p-4 custom-scrollbar">
                                 {!testResult ? (
-                                    <div className={S.editorPlaceholder}>NO_ASSERTIONS_DATA</div>
+                                    <div className={S.editorPlaceholder}>NO_FUNCTIONAL_DATA</div>
                                 ) : (
-                                    <div className="space-y-6">
-                                        {/* SCHEMA VALIDATION SECTION */}
-                                        <div className="space-y-2">
-                                            <h3 className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest pl-1">Contract_Validation</h3>
-
-                                            {testResult.validationResult ? (
-                                                <div className={`rounded-sm border ${testResult.validationResult.valid
-                                                    ? 'bg-emerald-500/5 border-emerald-500/20'
-                                                    : 'bg-rose-500/5 border-rose-500/20'}`}>
-
-                                                    {/* Header Status */}
-                                                    <div className={`px-3 py-2 flex items-center gap-2 border-b ${testResult.validationResult.valid
-                                                        ? 'border-emerald-500/10 text-emerald-500'
-                                                        : 'border-rose-500/10 text-rose-500'}`}>
-                                                        {testResult.validationResult.valid ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                                                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider">
-                                                            {testResult.validationResult.valid ? 'SCHEMA_MATCHED' : 'SCHEMA_VIOLATION'}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Error Details */}
-                                                    {!testResult.validationResult.valid && testResult.validationResult.errors && (
-                                                        <div className="p-3 bg-deep/50 space-y-1">
-                                                            {testResult.validationResult.errors.map((err: any, idx: number) => (
-                                                                <div key={idx} className="font-mono text-[10px] text-rose-400 flex gap-2 items-start">
-                                                                    <span className="opacity-50 mt-0.5">•</span>
-                                                                    <span>
-                                                                        <span className="opacity-70">{err.instancePath}</span> {err.message}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="p-3 border border-dashed border-main text-secondary-text text-[10px] font-mono italic opacity-50 text-center">
-                                                    No schema defined for this request
-                                                </div>
-                                            )}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest pl-1">Functional_Tests</h3>
+                                            <span className="text-[9px] font-mono text-secondary-text opacity-50">
+                                                {testResult.testResults?.filter(t => t.pass).length || 0} / {testResult.testResults?.length || 0} PASS
+                                            </span>
                                         </div>
-
-                                        {/* TEST RESULTS SECTION */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="text-[10px] font-mono font-bold text-secondary-text uppercase tracking-widest pl-1">Test_Suite_Execution</h3>
-                                                <span className="text-[9px] font-mono text-secondary-text opacity-50">
-                                                    {testResult.testResults?.filter(t => t.pass).length || 0} / {testResult.testResults?.length || 0} PASS
-                                                </span>
-                                            </div>
-
-                                            {testResult.testResults && testResult.testResults.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {testResult.testResults.map((test, i) => (
-                                                        <div key={i} className={`group border transition-all ${test.pass
-                                                            ? 'bg-emerald-500/5 border-emerald-500/10' // Minimal pass style
-                                                            : 'bg-rose-500/5 border-rose-500/30' // Stronger fail style
-                                                            }`}>
-                                                            {/* Test Header */}
-                                                            <div className="flex items-start gap-3 p-3">
-                                                                <div className={`mt-0.5 shrink-0 ${test.pass ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                    {test.pass ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                                        {testResult.testResults && testResult.testResults.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {testResult.testResults.map((test, i) => (
+                                                    <div key={i} className={`group border transition-all ${test.pass
+                                                        ? 'bg-emerald-500/5 border-emerald-500/10'
+                                                        : 'bg-rose-500/5 border-rose-500/30'}`}>
+                                                        <div className="flex items-start gap-3 p-3">
+                                                            <div className={`mt-0.5 shrink-0 ${test.pass ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                {test.pass ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className={`font-mono text-[11px] font-medium leading-tight ${test.pass ? 'text-secondary-text group-hover:text-emerald-400' : 'text-rose-400'}`}>
+                                                                    {test.name}
                                                                 </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className={`font-mono text-[11px] font-medium leading-tight ${test.pass ? 'text-secondary-text group-hover:text-emerald-400' : 'text-rose-400'}`}>
-                                                                        {test.name}
+                                                                {!test.pass && test.error && (
+                                                                    <div className="mt-3 relative">
+                                                                        <div className="absolute inset-0 bg-rose-950/20 pointer-events-none" />
+                                                                        <pre className="relative p-2 text-[10px] font-mono text-rose-300 bg-black/20 border-l-2 border-rose-500/50 overflow-x-auto whitespace-pre-wrap break-all">
+                                                                            {test.error}
+                                                                        </pre>
                                                                     </div>
-
-                                                                    {/* Error Message Block */}
-                                                                    {!test.pass && test.error && (
-                                                                        <div className="mt-3 relative">
-                                                                            <div className="absolute inset-0 bg-rose-950/20 pointer-events-none" />
-                                                                            <pre className="relative p-2 text-[10px] font-mono text-rose-300 bg-black/20 border-l-2 border-rose-500/50 overflow-x-auto whitespace-pre-wrap break-all">
-                                                                                {test.error}
-                                                                            </pre>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="p-3 border border-dashed border-main text-secondary-text text-[10px] font-mono italic opacity-50 text-center">
-                                                    No tests scripts executed
-                                                </div>
-                                            )}
-                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="p-3 border border-dashed border-main text-secondary-text text-[10px] font-mono italic opacity-50 text-center">
+                                                No functional scripts executed
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -480,7 +484,14 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                 </div>
                                 <div className={S.historyContainer}>
                                     {projectHistory.map((h, i) => (
-                                        <div key={h.id || i} className={S.historyItem}>
+                                        <div
+                                            key={h.id || i}
+                                            className={`${S.historyItem} cursor-pointer hover:bg-main/5 active:bg-main/10 transition-colors`}
+                                            onClick={() => {
+                                                onViewHistory(h);
+                                                setActiveResultTab('response');
+                                            }}
+                                        >
                                             <div className="flex-1 min-w-0 pr-2">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className={S.requestMethodBadge(h.request?.method || 'N/A')}>{h.request?.method || 'UNK'}</span>
@@ -569,6 +580,20 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={isConfirmDeleteOpen}
+                onClose={() => setIsConfirmDeleteOpen(false)}
+                onConfirm={() => {
+                    if (requestToDelete) {
+                        onDeleteRequest(requestToDelete.id);
+                        setRequestToDelete(null);
+                    }
+                }}
+                title="CONFIRM_DELETE"
+                message={`Are you sure you want to delete "${requestToDelete?.name}"? This will also remove all associated execution history.`}
+                confirmText="DELETE_PROTOCOL"
+            />
         </div>
     );
 };

@@ -10,7 +10,7 @@ interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange, className = '', rightContent }) => {
     return (
-        <div className={`flex items-center justify-between border-b border-main bg-deep/30 h-10 shrink-0 ${className}`}>
+        <div className={`flex items-center justify-between border-b border-main/10 bg-deep/30 h-10 shrink-0 ${className}`}>
             <div className="flex h-full">
                 {tabs.map((tab) => (
                     <button

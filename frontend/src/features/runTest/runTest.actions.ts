@@ -1,10 +1,10 @@
-import { requestService } from '@/shared/api/request.service';
+import { RequestService } from '@/services/RequestService';
 import type { RunTestPayload, RunTestResult } from './runTest.types';
 
 export const runTestActions = {
     async executeTest(payload: RunTestPayload): Promise<RunTestResult> {
         try {
-            const result = await requestService.execute(payload.requestId, payload.environmentId);
+            const result = await RequestService.execute(payload.requestId, payload.environmentId);
             return {
                 status: "success",
                 response: result,
