@@ -16,8 +16,8 @@ RUN npm install
 
 COPY . .
 
-RUN npx prisma generate
 RUN npm run build
+RUN npm prune --omit=dev
 
 # Stage 2: Production
 FROM node:20-alpine
