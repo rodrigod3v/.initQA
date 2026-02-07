@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ExecutionProcessor } from './execution.processor';
 import { RequestModule } from '../request/request.module';
 import { LoadTestModule } from '../load-test/load-test.module';
+import { ProjectModule } from '../project/project.module';
 
 @Module({
   imports: [
@@ -10,7 +11,8 @@ import { LoadTestModule } from '../load-test/load-test.module';
       name: 'execution',
     }),
     RequestModule,
-    LoadTestModule,
+    forwardRef(() => LoadTestModule),
+    forwardRef(() => ProjectModule),
   ],
   providers: [ExecutionProcessor],
   exports: [BullModule],

@@ -3,7 +3,14 @@ import { Job } from 'bullmq';
 import { ExecutionService } from '../request/execution/execution.service';
 import { LoadExecutionService } from '../load-test/execution/load-execution.service';
 import { ProjectService } from '../project/project.service';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
+
+interface JobData {
+  requestId?: string;
+  loadTestId?: string;
+  projectId?: string;
+  environmentId?: string;
+}
 
 @Processor('execution')
 export class ExecutionProcessor extends WorkerHost {
@@ -11,25 +18,40 @@ export class ExecutionProcessor extends WorkerHost {
 
   constructor(
     private executionService: ExecutionService,
+    @Inject(forwardRef(() => LoadExecutionService))
     private loadExecutionService: LoadExecutionService,
+    @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
   ) {
     super();
   }
 
-  async process(job: Job<any, any, string>): Promise<any> {
+  async process(job: Job<JobData, any, string>): Promise<any> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
+    const { data } = job;
 
     switch (job.name) {
       case 'request':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return this.executionService.execute(job.data.requestId, job.data.environmentId);
+        if (data.requestId) {
+          return this.executionService.execute(
+            data.requestId,
+            data.environmentId,
+          );
+        }
+        break;
       case 'load-test':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return this.loadExecutionService.execute(job.data.loadTestId, job.data.environmentId);
+        if (data.loadTestId) {
+          return this.loadExecutionService.execute(
+            data.loadTestId,
+            data.environmentId,
+          );
+        }
+        break;
       case 'batch-execution':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return this.projectService.runAll(job.data.projectId, job.data.environmentId);
+        if (data.projectId) {
+          return this.projectService.runAll(data.projectId, data.environmentId);
+        }
+        break;
       default:
         this.logger.warn(`Unknown job type: ${job.name}`);
     }

@@ -24,12 +24,18 @@ program
   .requiredOption('-p, --project-id <id>', 'Project ID to execute')
   .option('-e, --env-id <id>', 'Target Environment ID')
   .option('-u, --api-url <url>', 'API Base URL', 'http://localhost:3000')
-  .option('-t, --token <token>', 'Authentication Token (or use INITQA_TOKEN env)', process.env.INITQA_TOKEN)
+  .option(
+    '-t, --token <token>',
+    'Authentication Token (or use INITQA_TOKEN env)',
+    process.env.INITQA_TOKEN,
+  )
   .action(async (options) => {
     const { projectId, envId, apiUrl, token } = options;
 
     if (!token) {
-      console.error('Error: Authentication token is required via --token or INITQA_TOKEN env');
+      console.error(
+        'Error: Authentication token is required via --token or INITQA_TOKEN env',
+      );
       process.exit(1);
     }
 
@@ -40,7 +46,7 @@ program
       const response = await axios.post(
         `${apiUrl.replace(/\/$/, '')}/api/projects/${projectId}/run-all`,
         { environmentId: envId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const report = response.data as RunReport;
@@ -56,14 +62,17 @@ program
       });
 
       if (report.failed > 0) {
-        console.error('\n💥 Build failed: drift or validation errors detected.');
+        console.error(
+          '\n💥 Build failed: drift or validation errors detected.',
+        );
         process.exit(1);
       } else {
         console.log('\n✨ Build passed! No structural violations found.');
         process.exit(0);
       }
     } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Unknown error';
+      const message =
+        err.response?.data?.message || err.message || 'Unknown error';
       console.error('\n❌ Execution failed:', message);
       process.exit(1);
     }
