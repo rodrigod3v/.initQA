@@ -14,13 +14,22 @@ export interface LoadTest {
     projectId: string;
 }
 
+export interface LoadTestExecution {
+    id: string;
+    testId: string;
+    status: 'PENDING' | 'EXECUTING' | 'FINISHED' | 'FAILED';
+    duration: number;
+    results: Record<string, unknown>;
+    createdAt: string;
+}
+
 interface LoadTestState {
     tests: LoadTest[];
     selectedTest: LoadTest | null;
     isLoading: boolean;
     isExecuting: boolean;
-    lastResult: any | null;
-    history: any[];
+    lastResult: LoadTestExecution | null;
+    history: LoadTestExecution[];
     error: string | null;
     syncStatus: 'idle' | 'saving' | 'saved' | 'error';
 
@@ -33,11 +42,11 @@ interface LoadTestState {
     deleteTest: (id: string) => Promise<void>;
     clearHistory: (id: string) => Promise<void>;
     selectTest: (test: LoadTest | null) => void;
-    setLastExecution: (result: any) => void;
+    setLastExecution: (result: LoadTestExecution | null) => void;
 }
 
 // Debounce timer
-let saveTimeout: any = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export const useLoadTestStore = create<LoadTestState>((set, get) => ({
     tests: [],
@@ -63,7 +72,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
                 set({ selectedTest: response.data[0] });
                 get().fetchHistory(response.data[0].id);
             }
-        } catch (err) {
+        } catch {
             set({ error: 'Failed to fetch usage tests', isLoading: false });
         }
     },
@@ -72,7 +81,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
         try {
             const response = await api.get(`/load-tests/${testId}/history`);
             set({ history: response.data });
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch history');
         }
     },
@@ -115,7 +124,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
                     set({ syncStatus: 'idle' });
                 }
             }, 2000);
-        } catch (err) {
+        } catch {
             set({ error: 'Failed to update test', syncStatus: 'error' });
         }
     },
@@ -126,7 +135,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
             const response = await api.post(`/load-tests/${id}/execute${envId ? `?environmentId=${envId}` : ''}`);
             set({ lastResult: response.data, isExecuting: false });
             get().fetchHistory(id);
-        } catch (err) {
+        } catch {
             set({ isExecuting: false, error: 'Execution failed' });
         }
     },
@@ -138,7 +147,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
                 tests: state.tests.filter(t => t.id !== id),
                 selectedTest: state.selectedTest?.id === id ? (state.tests.find(t => t.id !== id) || null) : state.selectedTest
             }));
-        } catch (err) {
+        } catch {
             set({ error: 'Failed to delete test' });
         }
     },
@@ -149,7 +158,7 @@ export const useLoadTestStore = create<LoadTestState>((set, get) => ({
             if (get().selectedTest?.id === id) {
                 set({ history: [], lastResult: null });
             }
-        } catch (err) {
+        } catch {
             console.error('Failed to clear history');
         }
     },

@@ -25,7 +25,7 @@ describe('useRequestExecution', () => {
 
     it('should execute request successfully', async () => {
         const mockResponse = { data: { id: 'exec-1', status: 200 } };
-        (api.post as any).mockResolvedValue(mockResponse);
+        vi.mocked(api.post).mockResolvedValue(mockResponse);
 
         const { result } = renderHook(() => useRequestExecution('env-1', mockOnHistoryUpdate));
 
@@ -44,7 +44,7 @@ describe('useRequestExecution', () => {
 
     it('should handle execution error', async () => {
         const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        (api.post as any).mockRejectedValue(new Error('Network error'));
+        vi.mocked(api.post).mockRejectedValue(new Error('Network error'));
 
         const { result } = renderHook(() => useRequestExecution('', mockOnHistoryUpdate));
 

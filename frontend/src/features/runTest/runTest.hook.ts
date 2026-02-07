@@ -16,8 +16,9 @@ export const useRunTest = () => {
             if (actionResult.status === 'error') {
                 setError(typeof actionResult.response === 'string' ? actionResult.response : 'Test execution failed');
             }
-        } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred');
+        } catch (err: unknown) {
+            const errorObj = err as { message?: string };
+            setError(errorObj.message || 'An unexpected error occurred');
         } finally {
             setIsLoading(false);
         }

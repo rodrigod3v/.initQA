@@ -1,25 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/shared/api';
+import { type ExecutionResult } from '@/shared/types/api';
 
 export const useWebScenarioHistory = (projectId?: string, selectedScenarioId?: string) => {
-    const [projectHistory, setProjectHistory] = useState<any[]>([]);
+    const [projectHistory, setProjectHistory] = useState<ExecutionResult[]>([]);
 
-    const fetchProjectHistory = async () => {
+    const fetchProjectHistory = useCallback(async () => {
         const id = projectId;
         if (!id) return;
         try {
             const response = await api.get(`/web-scenarios/project-history/${id}`);
             setProjectHistory(response.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch project history');
         }
-    };
+    }, [projectId]);
 
     useEffect(() => {
         if (projectId) {
-            fetchProjectHistory();
+            const timer = setTimeout(() => {
+                fetchProjectHistory();
+            }, 0);
+            return () => clearTimeout(timer);
         }
-    }, [projectId, selectedScenarioId]);
+    }, [projectId, selectedScenarioId, fetchProjectHistory]);
 
     return {
         projectHistory,

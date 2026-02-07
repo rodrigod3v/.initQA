@@ -9,10 +9,11 @@ export const runTestActions = {
                 status: "success",
                 response: result,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: string }, message?: string };
             return {
                 status: "error",
-                response: error.response?.data || error.message,
+                response: err.response?.data || err.message || 'Unknown error',
             };
         }
     }

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { suiteTestActions } from './suiteTest.actions';
 import type { SuiteTestPayload } from './suiteTest.types';
+import { type ExecutionResult } from '@/shared/types/api';
 
 export const useSuiteTest = () => {
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<ExecutionResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -17,8 +18,9 @@ export const useSuiteTest = () => {
             } else {
                 setError('Suite execution failed');
             }
-        } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred');
+        } catch (err: unknown) {
+            const errorObj = err as { message?: string };
+            setError(errorObj.message || 'An unexpected error occurred');
         } finally {
             setIsLoading(false);
         }

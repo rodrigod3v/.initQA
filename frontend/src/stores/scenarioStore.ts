@@ -43,7 +43,7 @@ interface ScenarioState {
 }
 
 // Debounce timer reference outside store to avoid state updates
-let saveTimeout: any = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export const useScenarioStore = create<ScenarioState>((set, get) => ({
     scenarios: [],
@@ -63,7 +63,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
                 isLoading: false,
                 lastError: null
             });
-        } catch (error) {
+        } catch {
             set({
                 isLoading: false,
                 lastError: 'Failed to fetch scenarios'
@@ -142,7 +142,7 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
                 scenarios: state.scenarios.filter(s => s.id !== id),
                 selectedScenario: state.selectedScenario?.id === id ? null : state.selectedScenario
             }));
-        } catch (error) {
+        } catch {
             set({ lastError: 'Failed to delete scenario' });
         }
     },

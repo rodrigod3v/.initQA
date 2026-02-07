@@ -1,3 +1,5 @@
+import { type ExecutionResult } from '@/shared/types/api';
+
 export interface RunTestPayload {
     requestId: string;
     environmentId?: string;
@@ -5,5 +7,5 @@ export interface RunTestPayload {
 
 export interface RunTestResult {
     status: "success" | "error";
-    response: any;
+    response: ExecutionResult | string;
 }

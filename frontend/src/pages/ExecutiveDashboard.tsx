@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/shared/api';
 import {
@@ -31,23 +31,23 @@ const ExecutiveDashboard: React.FC = () => {
     const [stats, setStats] = useState<ExecutiveStats | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (projectId) {
-            fetchStats();
-        }
-    }, [projectId]);
-
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         setLoading(true);
         try {
             const response = await api.get(`/dashboard/executive/${projectId}`);
             setStats(response.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch executive stats');
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectId]);
+
+    useEffect(() => {
+        if (projectId) {
+            fetchStats();
+        }
+    }, [projectId, fetchStats]);
 
     if (loading) return (
         <div className="flex items-center justify-center h-full">

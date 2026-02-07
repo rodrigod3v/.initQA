@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Send, GitCompare, LogOut, Terminal, Layers, Monitor, Zap, Home, ChevronLeft, ChevronRight, Lock, BarChart3 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useProjectStore } from '@/stores/projectStore';
 
 interface NavItem {
-    icon: any;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
     label: string;
     path: string;
     external?: boolean;

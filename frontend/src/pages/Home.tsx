@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/shared/api';
 import { useProjectStore } from '@/stores/projectStore';
@@ -53,7 +53,7 @@ interface HomeStats {
 interface SectionItem {
     title: string;
     description: string;
-    icon: any;
+    icon: React.ElementType;
     color: string;
     path?: string;
     primary?: boolean;
@@ -73,20 +73,20 @@ const Home: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'overview' | 'analytics'>('overview');
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await api.get('/dashboard/stats');
-                setStats(response.data);
-            } catch (err) {
-                console.error('Failed to fetch stats');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
+    const fetchStats = useCallback(async () => {
+        try {
+            const response = await api.get('/dashboard/stats');
+            setStats(response.data);
+        } catch {
+            console.error('Failed to fetch stats');
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
 
     const getModulePath = (basePath: string) => {
         if (!selectedProject) return '/projects';

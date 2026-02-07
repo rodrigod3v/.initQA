@@ -43,7 +43,7 @@ interface RequestState {
 }
 
 // Debounce timer reference
-let saveTimeout: any = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export const useRequestStore = create<RequestState>((set, get) => ({
     requests: [],
@@ -76,7 +76,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
                 set({ selectedRequest: data[0] });
             }
 
-        } catch (error) {
+        } catch {
             set({
                 isLoading: false,
                 lastError: 'Failed to fetch requests'
@@ -93,7 +93,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         try {
             const data = await RequestService.getProjectHistory(projectId);
             set({ projectHistory: data });
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch project history');
         }
     },
@@ -139,13 +139,16 @@ export const useRequestStore = create<RequestState>((set, get) => ({
 
         set({ syncStatus: 'saving' });
         try {
-            const { id: reqId, projectId, executions, ...dataToSave } = request;
+            const dataToSave = { ...request } as Record<string, unknown>;
+            delete dataToSave.id;
+            delete dataToSave.projectId;
+            delete dataToSave.executions;
 
             // Clean up JSON fields before sending if they are strings
             const payload = { ...dataToSave };
-            try { if (typeof payload.body === 'string') payload.body = JSON.parse(payload.body); } catch (e) { }
-            try { if (typeof payload.headers === 'string') payload.headers = JSON.parse(payload.headers); } catch (e) { }
-            try { if (typeof payload.expectedResponseSchema === 'string') payload.expectedResponseSchema = JSON.parse(payload.expectedResponseSchema); } catch (e) { }
+            try { if (typeof payload.body === 'string') payload.body = JSON.parse(payload.body); } catch { /* ignore */ }
+            try { if (typeof payload.headers === 'string') payload.headers = JSON.parse(payload.headers); } catch { /* ignore */ }
+            try { if (typeof payload.expectedResponseSchema === 'string') payload.expectedResponseSchema = JSON.parse(payload.expectedResponseSchema); } catch { /* ignore */ }
 
             await RequestService.update(id, payload);
             set({ syncStatus: 'saved', lastError: null });
@@ -172,7 +175,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
                     selectedRequest: newRequests.length > 0 ? newRequests[0] : null
                 };
             });
-        } catch (error) {
+        } catch {
             set({ lastError: 'Failed to delete request' });
         }
     },
@@ -192,7 +195,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             if (projectId) {
                 await get().fetchProjectHistory(projectId);
             }
-        } catch (err) {
+        } catch {
             set({ lastError: 'Execution failed' });
         } finally {
             set({ executing: false });
@@ -236,8 +239,9 @@ export const useRequestStore = create<RequestState>((set, get) => ({
                     });
 
                     await get().fetchProjectHistory(pId);
-                } catch (e: any) {
-                    console.error(`[STORE] Failed to run request ${req.name}:`, e.message);
+                } catch (e) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    console.error(`[STORE] Failed to run request ${req.name}:`, message);
                     set(state => {
                         const newRunning = new Set(state.runningRequests);
                         newRunning.delete(req.id);
@@ -247,9 +251,10 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             }
 
             console.log('[STORE] Batch execution complete.');
-        } catch (err: any) {
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
             console.error('[STORE] Batch execution CRITICAL failure:', err);
-            set({ lastError: 'Batch execution failed: ' + err.message });
+            set({ lastError: 'Batch execution failed: ' + message });
         } finally {
             set({ batchExecuting: false, runningRequests: new Set() });
             // Final refresh to be sure
@@ -266,7 +271,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         try {
             await RequestService.clearProjectHistory(projectId);
             set({ projectHistory: [] });
-        } catch (err) {
+        } catch {
             console.error('Failed to clear project history');
         }
     },

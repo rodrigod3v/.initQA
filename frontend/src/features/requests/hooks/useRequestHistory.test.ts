@@ -16,7 +16,7 @@ describe('useRequestHistory', () => {
 
     it('should fetch history on mount if projectId provided', async () => {
         const mockHistory = [{ id: '1' }, { id: '2' }];
-        (api.get as any).mockResolvedValue({ data: mockHistory });
+        vi.mocked(api.get).mockResolvedValue({ data: mockHistory });
 
         const { result } = renderHook(() => useRequestHistory('proj-1'));
 
@@ -35,7 +35,7 @@ describe('useRequestHistory', () => {
 
     it('should handle fetch error', async () => {
         const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        (api.get as any).mockRejectedValue(new Error('Failed'));
+        vi.mocked(api.get).mockRejectedValue(new Error('Failed'));
 
         renderHook(() => useRequestHistory('proj-1'));
 
@@ -48,7 +48,7 @@ describe('useRequestHistory', () => {
 
     it('should expose fetchProjectHistory for manual refresh', async () => {
          const mockHistory = [{ id: 'new' }];
-        (api.get as any).mockResolvedValue({ data: mockHistory });
+        vi.mocked(api.get).mockResolvedValue({ data: mockHistory });
 
         const { result } = renderHook(() => useRequestHistory('proj-1'));
 
