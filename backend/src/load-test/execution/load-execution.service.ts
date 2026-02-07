@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -14,7 +16,15 @@ export class LoadExecutionService {
   constructor(
     private prisma: PrismaService,
     private utilsService: UtilsService,
+    @InjectQueue('execution') private executionQueue: Queue,
   ) {}
+
+  async executeAsync(loadTestId: string, environmentId?: string) {
+    return this.executionQueue.add('load-test', {
+      loadTestId,
+      environmentId,
+    });
+  }
 
   async execute(loadTestId: string, environmentId?: string) {
     console.log(

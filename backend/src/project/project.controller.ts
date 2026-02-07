@@ -59,12 +59,12 @@ export class ProjectController {
     return this.projectService.removeEnvironment(id);
   }
 
-  @ApiOperation({ summary: 'Run all requests in a project' })
+  @ApiOperation({ summary: 'Run all requests in a project (queued)' })
   @Post(':id/run-all')
   runAll(
     @Param('id') id: string,
     @Body('environmentId') environmentId?: string,
   ) {
-    return this.projectService.runAll(id, environmentId);
+    return this.projectService.runAllAsync(id, environmentId);
   }
 }

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExecutionService } from '../request/execution/execution.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 export interface RunResult {
   id: string;
@@ -15,7 +17,15 @@ export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private executionService: ExecutionService,
+    @InjectQueue('execution') private executionQueue: Queue,
   ) {}
+
+  async runAllAsync(projectId: string, environmentId?: string) {
+    return this.executionQueue.add('batch-execution', {
+      projectId,
+      environmentId,
+    });
+  }
 
   async create(data: { name: string }) {
     return this.prisma.project.create({
