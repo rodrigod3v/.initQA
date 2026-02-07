@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-initqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-initqa}
+      POSTGRES_DB: ${POSTGRES_DB:-initqa}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  redis:
+    image: redis:alpine
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-initqa}:${POSTGRES_PASSWORD:-initqa}@postgres:5432/${POSTGRES_DB:-initqa}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 3000
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3000:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  postgres_data:

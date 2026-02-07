@@ -52,13 +52,13 @@ export class LoadTestController {
     return this.loadTestService.remove(id);
   }
 
-  @ApiOperation({ summary: 'Execute a load test' })
+  @ApiOperation({ summary: 'Execute a load test (queued)' })
   @Post(':id/execute')
   execute(
     @Param('id') id: string,
     @Query('environmentId') environmentId?: string,
   ) {
-    return this.loadExecutionService.execute(id, environmentId);
+    return this.loadExecutionService.executeAsync(id, environmentId);
   }
 
   @Get(':id/history')

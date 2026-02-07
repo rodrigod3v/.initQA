@@ -1,108 +1,80 @@
-# QA API Orchestrator & Execution Tool
+# .initQA: Professional API Orchestrator & QA Platform
 
-A professional-grade, full-stack application designed for managing HTTP request collections, web scenarios, and load testing. This project features a modern, modular architecture with a NestJS backend and a Vite-powered React frontend.
+A robust, full-stack application designed for managing complex API request collections, automated contract validation, side-by-side environment comparisons, and distributed load testing. Engineered for architectural excellence and optimized for low-resource environments (1GB RAM).
+
+## 🚀 Key Features
+
+- **Asynchronous Execution**: Background processing of heavy request chains and load tests via **BullMQ** and **Redis**.
+- **Contract Validation**: Real-time JSON Schema validation using **AJV** and OpenAPI/Swagger synchronization.
+- **Environment Intelligence**: Side-by-side response comparison with automated diff detection.
+- **Load Testing**: Integrated **k6** engine for performance validation, triggered directly from the UI or CLI.
+- **QA Utilities**: Built-in generators for CPF, UUID, and payload mutation (Fuzzing).
+- **Professional CLI**: Dedicated CI/CD runner for head-to-head project execution.
 
 ## 🏗️ Architecture
 
-This project follows a **Feature-Driven Design (FDD)** on the frontend and a **Flattened Modular** pattern on the backend, ensuring extreme scalability and maintainability.
+The platform follows a modular, feature-driven design optimized for scalability:
 
-### High-Level Structure
-- **Root**: Workspace management and common configuration.
-- **`backend/`**: NestJS application using Prisma ORM.
-  - Standardized modules with dedicated DTOs and Entities.
-  - **API Docs**: Fully documented via [Swagger/OpenAPI](SWAGGER.md).
-- **`frontend/`**: React application built with Vite.
-  - **`src/features/`**: Complex business logic extracted into custom hooks and components.
-  - **`src/shared/`**: Centralized UI design system, API services, and global types.
-  - **Path Aliases**: Clean imports via `@/` (e.g., `@/shared/ui/Button`).
+- **Backend**: NestJS (Fastify) + Prisma ORM.
+- **Frontend**: React (Vite) + Tailwind CSS 4 + Zustand.
+- **Persistence**: **PostgreSQL** for high-concurrency data management.
+- **Messaging**: **Redis** as a broker for task orchestration.
+- **Infrastructure**: Fully Dockerized with multi-stage builds and strict resource isolation.
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: React 18
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS / Vanilla CSS
-- **State Management**: Zustand
-- **Icons**: Lucide React
-- **Editor**: Monaco Editor
+- React 18 / Vite / TypeScript
+- **State**: Zustand
+- **Graphics**: Lucide React / HSL-based Curated Palettes
+- **Editor**: Monaco Editor (Lazy-Loaded)
 
 ### Backend
-- **Framework**: NestJS
-- **ORM**: Prisma
-- **Database**: SQLite (default)
-- **Validation**: Class-validator / DTOs
+- NestJS (Fastify Adapter)
+- **Database**: PostgreSQL
+- **Queue**: BullMQ + Redis
+- **Logging**: Structured Pino (+ Pino-Pretty for Dev)
+- **Validation**: AJV / Class-Validator
 
-## 🚀 Getting Started
+## 📦 Getting Started
 
 ### Prerequisites
-- Node.js (v18+)
-- npm
+- Node.js v20+
+- Docker & Docker Compose (Highly Recommended)
 
-### Installation
-From the root directory, install all dependencies for the entire workspace:
+### Quick Start (Local Development)
+1. Install dependencies: `npm install`
+2. Start concurrently: `npm run dev`
+
+### Production Deployment (Docker)
+Optimized for 1GB RAM VM environments:
 ```bash
-npm install
+docker compose up -d --build
+```
+*Resource limits are enforced via `docker-compose.yml`: API (384MB), Postgres (256MB), Redis (128MB), Nginx (128MB).*
+
+## 🛠️ Internal CLI (`initqa-cli`)
+Trigger project executions directly from your CI/CD pipeline:
+```bash
+npm run initqa-run -- -p <project_id> -e <env_id> -t <token>
 ```
 
-### Development
-Start both the backend and frontend concurrently in watch mode:
-```bash
-npm run dev
-```
-
-### Build
-Generate production-ready bundles for both layers:
-```bash
-npm run build
-```
-
-### Testing
-Run comprehensive unit tests for both layers:
-#### Frontend (Vitest)
-```bash
-cd frontend
-npm run test
-```
-### Testing
-Run comprehensive unit tests for both layers:
-#### Frontend (Vitest)
-```bash
-cd frontend
-npm run test
-```
-*Coverage: Services, Hooks, UI Components*
-
-#### Backend (Jest)
-```bash
-cd backend
-npm run test
-```
-*Coverage: Services, Controllers, Utils, Auth*
-
-## 📂 Project Organization
-
+## 📂 Project Structure
 ```text
 .
-├── backend/                # NestJS API Root
-│   ├── src/                # Shared source code
-│   │   ├── auth/           # Authentication logic
-│   │   ├── project/        # Project & Environment management
-│   │   ├── request/        # Request execution & collection
-│   │   └── ...             # Other modular features
-│   └── prisma/             # Database schema & migrations
-├── frontend/               # React Application Root
-│   ├── src/
-│   │   ├── features/       # Business-specific logic (Hooks/View)
-│   │   ├── shared/         # Universal UI, API helpers, & Types
-│   │   ├── pages/          # Entry-point view components
-│   │   └── ...
-└── package.json            # Root workspace configuration
+├── backend/                # NestJS API & Workers
+│   ├── src/queue/          # BullMQ Logic
+│   └── src/cli/            # CI/CD Runner
+├── frontend/               # React SPA
+├── nginx/                  # Production Reverse Proxy Config
+├── prisma/                 # PostgreSQL Schema
+└── docker-compose.yml      # Service Orchestration
 ```
 
 ## 🔒 Security & Best Practices
-- **DTO Validation**: All API inputs are strictly validated at the controller level.
-- **Environment Isolation**: Secrets are managed via `.env` files (excluded from version control).
-- **Modular Hooks**: Business logic is decoupled from UI presentation for easier testing.
+- **Isolation**: Stateless background workers for resource management.
+- **Validation**: Strict DTO and JSON Schema enforcement on all entry points.
+- **Optimization**: Multi-stage builds and internal swap configuration for stability.
 
 ---
-*Created with focus on architectural excellence.*
+*Optimized for Architectural Excellence. Designed for QA Professionals.*
