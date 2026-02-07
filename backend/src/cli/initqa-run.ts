@@ -15,6 +15,13 @@ interface RunReport {
   }>;
 }
 
+interface CliOptions {
+  projectId: string;
+  envId?: string;
+  apiUrl: string;
+  token?: string;
+}
+
 const program = new Command();
 
 program
@@ -24,12 +31,18 @@ program
   .requiredOption('-p, --project-id <id>', 'Project ID to execute')
   .option('-e, --env-id <id>', 'Target Environment ID')
   .option('-u, --api-url <url>', 'API Base URL', 'http://localhost:3000')
-  .option('-t, --token <token>', 'Authentication Token (or use INITQA_TOKEN env)', process.env.INITQA_TOKEN)
-  .action(async (options) => {
+  .option(
+    '-t, --token <token>',
+    'Authentication Token (or use INITQA_TOKEN env)',
+    process.env.INITQA_TOKEN,
+  )
+  .action(async (options: CliOptions) => {
     const { projectId, envId, apiUrl, token } = options;
 
     if (!token) {
-      console.error('Error: Authentication token is required via --token or INITQA_TOKEN env');
+      console.error(
+        'Error: Authentication token is required via --token or INITQA_TOKEN env',
+      );
       process.exit(1);
     }
 
@@ -37,13 +50,13 @@ program
     if (envId) console.log(`🌍 Target Environment: ${envId}`);
 
     try {
-      const response = await axios.post(
+      const response = await axios.post<RunReport>(
         `${apiUrl.replace(/\/$/, '')}/api/projects/${projectId}/run-all`,
         { environmentId: envId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      const report = response.data as RunReport;
+      const report = response.data;
       console.log('\n--- EXECUTION SUMMARY ---');
       console.log(`✅ Passed: ${report.passed}`);
       console.log(`❌ Failed: ${report.failed}`);
@@ -56,14 +69,24 @@ program
       });
 
       if (report.failed > 0) {
-        console.error('\n💥 Build failed: drift or validation errors detected.');
+        console.error(
+          '\n💥 Build failed: drift or validation errors detected.',
+        );
         process.exit(1);
       } else {
         console.log('\n✨ Build passed! No structural violations found.');
         process.exit(0);
       }
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Unknown error';
+    } catch (err: unknown) {
+      let message = 'Unknown error';
+      if (axios.isAxiosError(err)) {
+        const responseData = err.response?.data as
+          | { message?: string }
+          | undefined;
+        message = responseData?.message || err.message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       console.error('\n❌ Execution failed:', message);
       process.exit(1);
     }

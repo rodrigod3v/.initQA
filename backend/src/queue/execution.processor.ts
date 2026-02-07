@@ -5,6 +5,13 @@ import { LoadExecutionService } from '../load-test/execution/load-execution.serv
 import { ProjectService } from '../project/project.service';
 import { Logger } from '@nestjs/common';
 
+interface ExecutionJobData {
+  requestId?: string;
+  environmentId?: string;
+  loadTestId?: string;
+  projectId?: string;
+}
+
 @Processor('execution')
 export class ExecutionProcessor extends WorkerHost {
   private readonly logger = new Logger(ExecutionProcessor.name);
@@ -17,19 +24,27 @@ export class ExecutionProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<any, any, string>): Promise<any> {
+  async process(job: Job<ExecutionJobData, any, string>): Promise<any> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
+
+    const { requestId, environmentId, loadTestId, projectId } = job.data;
 
     switch (job.name) {
       case 'request':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return this.executionService.execute(job.data.requestId, job.data.environmentId);
+        return this.executionService.execute(
+          requestId as string,
+          environmentId as string,
+        );
       case 'load-test':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return this.loadExecutionService.execute(job.data.loadTestId, job.data.environmentId);
+        return this.loadExecutionService.execute(
+          loadTestId as string,
+          environmentId as string,
+        );
       case 'batch-execution':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return this.projectService.runAll(job.data.projectId, job.data.environmentId);
+        return this.projectService.runAll(
+          projectId as string,
+          environmentId as string,
+        );
       default:
         this.logger.warn(`Unknown job type: ${job.name}`);
     }
