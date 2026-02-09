@@ -5,7 +5,7 @@ import { LoadExecutionService } from '../load-test/execution/load-execution.serv
 import { ProjectService } from '../project/project.service';
 import { Logger, Inject, forwardRef } from '@nestjs/common';
 
-interface JobData {
+interface ExecutionJobData {
   requestId?: string;
   loadTestId?: string;
   projectId?: string;
@@ -26,7 +26,7 @@ export class ExecutionProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<JobData, any, string>): Promise<any> {
+  async process(job: Job<ExecutionJobData, any, string>): Promise<any> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
     const { data } = job;
 

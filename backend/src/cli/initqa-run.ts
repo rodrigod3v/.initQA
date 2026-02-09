@@ -15,7 +15,7 @@ interface RunReport {
   }>;
 }
 
-interface CLIOptions {
+interface CliOptions {
   projectId: string;
   envId?: string;
   apiUrl: string;
@@ -36,7 +36,7 @@ program
     'Authentication Token (or use INITQA_TOKEN env)',
     process.env.INITQA_TOKEN,
   )
-  .action(async (options: CLIOptions) => {
+  .action(async (options: CliOptions) => {
     const { projectId, envId, apiUrl, token } = options;
 
     if (!token) {
@@ -80,8 +80,10 @@ program
     } catch (err: unknown) {
       let message = 'Unknown error';
       if (axios.isAxiosError(err)) {
-        const data = err.response?.data as { message?: string } | undefined;
-        message = data?.message || err.message;
+        const responseData = err.response?.data as
+          | { message?: string }
+          | undefined;
+        message = responseData?.message || err.message;
       } else if (err instanceof Error) {
         message = err.message;
       }
