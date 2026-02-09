@@ -25,6 +25,7 @@ export class WebExecutionService {
   ) {}
 
   async execute(scenarioId: string, environmentId?: string) {
+    console.log(`[WebExecutionService] Executing scenario: ${scenarioId}, env: ${environmentId}`);
     const scenario = await this.prisma.webScenario.findUnique({
       where: { id: scenarioId },
     });
@@ -45,6 +46,7 @@ export class WebExecutionService {
     let screenshotPath: string | null = null;
 
     const browser = await chromium.launch({ headless: true });
+    console.log(`[WebExecutionService] Browser launched for scenario ${scenarioId}`);
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       userAgent: 'initQA-Web-Agent/1.0',
@@ -57,12 +59,14 @@ export class WebExecutionService {
     try {
       const steps: ScenarioStep[] =
         (scenario.steps as unknown as ScenarioStep[]) || [];
+      console.log(`[WebExecutionService] Steps retrieved. Count: ${steps.length}`);
       updatedSteps = [...steps];
 
       let stepIndex = 0;
       for (const step of steps) {
         const stepStart = Date.now();
         const currentStepIdx = stepIndex + 1;
+        console.log(`[WebExecutionService] Processing step ${currentStepIdx}: ${step.type}`);
         try {
           // Replace variables in selector and value
           const selector = this.utilsService.replaceVariables(
@@ -151,10 +155,12 @@ export class WebExecutionService {
 
           switch (step.type) {
             case 'GOTO':
+              console.log(`[WebExecutionService] Navigating to ${value}`);
               await page.goto(value, {
                 waitUntil: 'load',
                 timeout: 60000,
               });
+              console.log(`[WebExecutionService] Navigation to ${value} successful`);
               break;
             case 'CLICK':
               await page.click(effectiveSelector, { force: true });
@@ -308,8 +314,6 @@ export class WebExecutionService {
               console.warn('Learning failed for step', stepIndex, message);
             }
           }
-
-          break; // Stop scenario execution on first error
         } catch (stepError: unknown) {
           status = 'FAILED';
           const message =
@@ -365,7 +369,7 @@ export class WebExecutionService {
 
     const duration = Date.now() - startTime;
 
-    await this.prisma.webExecution.create({
+    return this.prisma.webExecution.create({
       data: {
         scenarioId: scenario.id,
         environmentId: environmentId || null,

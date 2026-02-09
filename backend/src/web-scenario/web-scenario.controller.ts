@@ -49,6 +49,7 @@ export class WebScenarioController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateDto: UpdateWebScenarioDto) {
+    console.log(`[WebScenarioController] Updating scenario ${id}:`, JSON.stringify(updateDto));
     return this.webScenarioService.update(id, updateDto);
   }
 
