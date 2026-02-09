@@ -50,13 +50,13 @@ program
     if (envId) console.log(`🌍 Target Environment: ${envId}`);
 
     try {
-      const response = await axios.post(
+      const response = await axios.post<RunReport>(
         `${apiUrl.replace(/\/$/, '')}/api/projects/${projectId}/run-all`,
         { environmentId: envId },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      const report = response.data as RunReport;
+      const report = response.data;
       console.log('\n--- EXECUTION SUMMARY ---');
       console.log(`✅ Passed: ${report.passed}`);
       console.log(`❌ Failed: ${report.failed}`);

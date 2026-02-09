@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectService } from './project.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExecutionService } from '../request/execution/execution.service';
+import { getQueueToken } from '@nestjs/bullmq';
 
 const mockPrismaService = {
   project: {
@@ -26,6 +27,10 @@ const mockExecutionService = {
   execute: jest.fn(),
 };
 
+const mockExecutionQueue = {
+  add: jest.fn(),
+};
+
 describe('ProjectService', () => {
   let service: ProjectService;
   let prisma: PrismaService;
@@ -41,6 +46,10 @@ describe('ProjectService', () => {
         {
           provide: ExecutionService,
           useValue: mockExecutionService,
+        },
+        {
+          provide: getQueueToken('execution'),
+          useValue: mockExecutionQueue,
         },
       ],
     }).compile();
