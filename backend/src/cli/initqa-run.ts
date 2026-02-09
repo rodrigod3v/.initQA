@@ -15,6 +15,13 @@ interface RunReport {
   }>;
 }
 
+interface CLIOptions {
+  projectId: string;
+  envId?: string;
+  apiUrl: string;
+  token: string;
+}
+
 const program = new Command();
 
 program
@@ -29,7 +36,7 @@ program
     'Authentication Token (or use INITQA_TOKEN env)',
     process.env.INITQA_TOKEN,
   )
-  .action(async (options) => {
+  .action(async (options: CLIOptions) => {
     const { projectId, envId, apiUrl, token } = options;
 
     if (!token) {
@@ -70,9 +77,14 @@ program
         console.log('\n✨ Build passed! No structural violations found.');
         process.exit(0);
       }
-    } catch (err: any) {
-      const message =
-        err.response?.data?.message || err.message || 'Unknown error';
+    } catch (err: unknown) {
+      let message = 'Unknown error';
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { message?: string } | undefined;
+        message = data?.message || err.message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       console.error('\n❌ Execution failed:', message);
       process.exit(1);
     }

@@ -30,7 +30,6 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
                 readOnly,
-                backgroundColor: '#0A0A0B',
             }}
         />
     );

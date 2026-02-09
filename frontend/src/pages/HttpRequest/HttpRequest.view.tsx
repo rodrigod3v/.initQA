@@ -554,7 +554,7 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                             </div>
                                             <div className="flex flex-col items-end gap-1 shrink-0">
                                                 <span className={S.historyItemDuration}>{h.duration}ms</span>
-                                                <RotateCcw size={10} className="text-secondary-text opacity-30 cursor-pointer hover:opacity-100 transition-opacity" title="Re-run" />
+                                                <RotateCcw size={10} className="text-secondary-text opacity-30 cursor-pointer hover:opacity-100 transition-opacity" />
                                             </div>
                                         </div>
                                     ))}

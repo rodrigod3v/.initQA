@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-initqa}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-initqa}
       POSTGRES_DB: ${POSTGRES_DB:-initqa}
+    ports:
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     deploy:
@@ -14,6 +16,8 @@ services:
 
   redis:
     image: redis:alpine
+    ports:
+      - "6379:6379"
     deploy:
       resources:
         limits:
