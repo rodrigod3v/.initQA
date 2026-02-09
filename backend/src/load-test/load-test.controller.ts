@@ -76,8 +76,8 @@ export class LoadTestController {
 
   @Post(':id/stream')
   streamMetrics(@Param('id') id: string, @Body() metrics: any) {
-      // Broadcast metrics to frontend via WebSockets
-      this.eventsGateway.emitLoadMetrics(id, metrics);
-      return { success: true };
+    // Broadcast metrics to frontend via WebSockets
+    this.eventsGateway.emitLoadMetrics(id, metrics);
+    return { success: true };
   }
 }

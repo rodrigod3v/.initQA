@@ -86,12 +86,12 @@ program
           | { message?: string }
           | undefined;
         message = responseData?.message || err.message;
-        
+
         // If it's a 4xx error (e.g. 401, 404), maybe it's config?
         // But strictly, if the API is reachable but returns error, it might be config or infra.
         // Let's keep 401/403 as Config (3)
         if (err.response?.status === 401 || err.response?.status === 403) {
-             exitCode = 3;
+          exitCode = 3;
         }
       } else if (err instanceof Error) {
         message = err.message;
