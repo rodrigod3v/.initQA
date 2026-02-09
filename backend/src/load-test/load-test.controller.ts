@@ -16,6 +16,8 @@ import { CreateLoadTestDto, UpdateLoadTestDto } from './dto/load-test.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+import { EventsGateway } from '../events/events.gateway';
+
 @ApiTags('load-tests')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -24,6 +26,7 @@ export class LoadTestController {
   constructor(
     private readonly loadTestService: LoadTestService,
     private readonly loadExecutionService: LoadExecutionService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   @ApiOperation({ summary: 'Create a new load test' })
@@ -69,5 +72,12 @@ export class LoadTestController {
   @Delete(':id/history')
   clearHistory(@Param('id') id: string) {
     return this.loadExecutionService.clearHistory(id);
+  }
+
+  @Post(':id/stream')
+  streamMetrics(@Param('id') id: string, @Body() metrics: any) {
+      // Broadcast metrics to frontend via WebSockets
+      this.eventsGateway.emitLoadMetrics(id, metrics);
+      return { success: true };
   }
 }

@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { chromium, Page, Locator } from 'playwright';
 import { UtilsService } from '../../utils/utils.service';
+import { EventsGateway } from '../../events/events.gateway';
 
 interface StepMetadata {
   text?: string;
   placeholder?: string | null;
   role?: string;
   name?: string;
+  testId?: string;
 }
 
 interface ScenarioStep {
@@ -24,6 +26,7 @@ export class WebExecutionService {
   constructor(
     private prisma: PrismaService,
     private utilsService: UtilsService,
+    private eventsGateway: EventsGateway,
   ) {}
 
   async execute(scenarioId: string, environmentId?: string) {
@@ -165,6 +168,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -182,6 +186,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -199,6 +204,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -216,6 +222,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -233,6 +240,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -253,6 +261,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -270,6 +279,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -287,6 +297,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -304,6 +315,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -322,6 +334,7 @@ export class WebExecutionService {
                   await this.findElementWithHealing(
                     page,
                     effectiveSelector,
+                    scenario.id,
                     step.metadata,
                   );
                 if (healed)
@@ -345,6 +358,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -369,6 +383,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -392,6 +407,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -438,6 +454,7 @@ export class WebExecutionService {
                 await this.findElementWithHealing(
                   page,
                   effectiveSelector,
+                  scenario.id,
                   step.metadata,
                 );
               if (healed)
@@ -528,6 +545,7 @@ export class WebExecutionService {
   private async findElementWithHealing(
     page: Page,
     selector: string,
+    scenarioId: string,
     metadata?: StepMetadata,
   ): Promise<{ locator: Locator; healed: boolean; method?: string }> {
     // 1. Attempt Original Selector (Fast Fail)
@@ -544,59 +562,125 @@ export class WebExecutionService {
       );
     }
 
-    // 2. Healing Strategy
+    // 2. Healing Strategy - Weighted Scoring
+    const candidates: {
+      locator: Locator;
+      score: number;
+      method: string;
+      info: string;
+    }[] = [];
 
-    // A. Role + Name (Strongest Semantic Match)
-    if (metadata.role && metadata.name) {
+    // A. Test ID (Weight: 1.0) - Highest Priority
+    if (metadata.testId) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const locator = page
-          .getByRole(metadata.role as any, { name: metadata.name })
-          .first();
-        await locator.waitFor({ state: 'attached', timeout: 1000 });
-        console.log(
-          `[Self-Healing] Recovered via Role: ${metadata.role} name: ${metadata.name}`,
-        );
-        return { locator, healed: true, method: 'ROLE_AND_NAME' };
+        const locator = page.getByTestId(metadata.testId).first();
+        if ((await locator.count()) > 0) {
+          candidates.push({
+            locator,
+            score: 1.0,
+            method: 'TEST_ID',
+            info: `data-testid="${metadata.testId}"`,
+          });
+        }
       } catch {
-        // Continue to next recovery strategy
+        // Continue
       }
     }
 
-    // B. Text Content (User-Visible)
+    // B. Role + Name (Weight: 0.8)
+    if (metadata.role && metadata.name) {
+      try {
+        const locator = page
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+          .getByRole(metadata.role as any, { name: metadata.name })
+          .first();
+        if ((await locator.count()) > 0) {
+          candidates.push({
+            locator,
+            score: 0.8,
+            method: 'ROLE_AND_NAME',
+            info: `role="${metadata.role}" name="${metadata.name}"`,
+          });
+        }
+      } catch {
+        // Continue
+      }
+    }
+
+    // C. Text Content (Weight: 0.7)
     if (metadata.text) {
       try {
         const locator = page.getByText(metadata.text).first();
-        await locator.waitFor({ state: 'attached', timeout: 1000 });
-        console.log(`[Self-Healing] Recovered via Text: ${metadata.text}`);
-        return { locator, healed: true, method: 'TEXT_CONTENT' };
+        if ((await locator.count()) > 0) {
+          candidates.push({
+            locator,
+            score: 0.7,
+            method: 'TEXT_CONTENT',
+            info: `text="${metadata.text}"`,
+          });
+        }
       } catch {
         // Continue
       }
     }
 
-    // C. Placeholder (Form Fields)
+    // D. Placeholder (Weight: 0.6)
     if (metadata.placeholder) {
       try {
         const locator = page.getByPlaceholder(metadata.placeholder).first();
-        await locator.waitFor({ state: 'attached', timeout: 1000 });
-        console.log(`[Self-Healing] Recovered via Placeholder`);
-        return { locator, healed: true, method: 'PLACEHOLDER' };
+        if ((await locator.count()) > 0) {
+          candidates.push({
+            locator,
+            score: 0.6,
+            method: 'PLACEHOLDER',
+            info: `placeholder="${metadata.placeholder}"`,
+          });
+        }
       } catch {
         // Continue
       }
     }
 
-    // D. Name Attribute (Forms)
+    // E. Name Attribute (Weight: 0.5)
     if (metadata.name) {
       try {
-        // Fallback for name if role lookup failed (sometimes role is generic)
         const locator = page.locator(`[name="${metadata.name}"]`).first();
-        await locator.waitFor({ state: 'attached', timeout: 1000 });
-        return { locator, healed: true, method: 'NAME_ATTRIBUTE' };
+        if ((await locator.count()) > 0) {
+          candidates.push({
+            locator,
+            score: 0.5,
+            method: 'NAME_ATTRIBUTE',
+            info: `name="${metadata.name}"`,
+          });
+        }
       } catch {
         // Continue
       }
+    }
+
+    // Decision Phase
+    if (candidates.length > 0) {
+      // Sort by score DESC
+      candidates.sort((a, b) => b.score - a.score);
+      const winner = candidates[0];
+
+      console.log(
+        `[Self-Healing] Winner: ${winner.method} (Score: ${winner.score}) - ${winner.info}`,
+      );
+      this.eventsGateway.emitHealing(scenarioId, {
+        method: winner.method,
+        score: winner.score,
+        info: winner.info,
+        status: 'HEALED',
+      });
+      if (candidates.length > 1) {
+        console.log(
+          `[Self-Healing] Candidates: ${candidates.map((c) => `${c.method}(${c.score})`).join(', ')}`,
+        );
+      }
+
+      await winner.locator.waitFor({ state: 'attached', timeout: 1000 });
+      return { locator: winner.locator, healed: true, method: winner.method };
     }
 
     // Fallback: Return original to throw specific error from Playwright
@@ -647,10 +731,9 @@ export class WebExecutionService {
     let totalHealedEvents = 0;
 
     for (const exec of executions) {
-      if (Array.isArray(exec.logs)) {
-        const healedLogs = exec.logs.filter(
-          (log: any) => log.status === 'HEALED',
-        );
+      const logs = exec.logs as unknown as { status: string }[];
+      if (Array.isArray(logs)) {
+        const healedLogs = logs.filter((log) => log.status === 'HEALED');
         if (healedLogs.length > 0) {
           const scenarioName = exec.scenario?.name || 'Unknown Scenario';
           stats[scenarioName] = (stats[scenarioName] || 0) + healedLogs.length;

@@ -58,17 +58,48 @@ export class LoadExecutionService {
     const scriptContent = `
 import http from 'k6/http';
 import { sleep } from 'k6';
+import exec from 'k6/execution';
 
 export const options = {
-  stages: ${JSON.stringify(config.stages || [{ duration: '30s', target: 20 }])},
+  scenarios: {
+    load_test: {
+        executor: 'ramping-vus',
+        startVUs: 0,
+        stages: ${JSON.stringify(config.stages || [{ duration: '30s', target: 20 }])},
+        gracefulStop: '5s',
+    },
+    telemetry: {
+        executor: 'constant-vus',
+        vus: 1,
+        duration: '1h',
+        startTime: '0s',
+    }
+  },
   thresholds: {
     http_req_duration: [\`p(95)<\${String(config.thresholdMs || '500')}\`],
   },
 };
 
+const BACKEND_URL = 'http://localhost:3000';
+
 export default function () {
-  http.get('${targetUrl}');
-  sleep(1);
+    if (exec.scenario.name === 'telemetry') {
+        const currentVus = exec.instance.vusActive;
+        const currentIter = exec.instance.iterationsCompleted;
+        
+        http.post(\`\${BACKEND_URL}/load-tests/${loadTestId}/stream\`, JSON.stringify({
+            vus: currentVus,
+            iterations: currentIter,
+            timestamp: Date.now()
+        }), {
+            headers: { 'Content-Type': 'application/json' },
+        });
+        
+        sleep(1);
+    } else {
+        http.get('${targetUrl}');
+        sleep(1);
+    }
 }
     `;
 
