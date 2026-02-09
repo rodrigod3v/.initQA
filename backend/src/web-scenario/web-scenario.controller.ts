@@ -62,6 +62,11 @@ export class WebScenarioController {
   }
 
   @ApiOperation({ summary: 'Execute a web scenario' })
+  @Get('stats/healing')
+  getHealingStats() {
+    return this.webExecutionService.getHealingStats();
+  }
+
   @Post(':id/execute')
   execute(
     @Param('id') id: string,

@@ -19,6 +19,7 @@ export class ComparisonService {
     leftEnvId: string,
     rightEnvId: string,
     maskingKeys: string[] = [],
+    strictMode: boolean = false,
   ) {
     const [leftExecution, rightExecution] = (await Promise.all([
       this.executionService.execute(requestId, leftEnvId),
@@ -35,6 +36,11 @@ export class ComparisonService {
     if (maskingKeys.length > 0) {
       leftData = this.maskData(leftData, maskingKeys);
       rightData = this.maskData(rightData, maskingKeys);
+    }
+
+    if (strictMode) {
+      leftData = this.toStructure(leftData);
+      rightData = this.toStructure(rightData);
     }
 
     const delta = this.differ.diff(leftData, rightData);
@@ -74,5 +80,20 @@ export class ComparisonService {
       }
     }
     return masked;
+  }
+
+  private toStructure(data: unknown): unknown {
+    if (data === null) return 'null';
+    if (Array.isArray(data)) {
+      return data.map((item) => this.toStructure(item));
+    }
+    if (typeof data === 'object') {
+      const struct: Record<string, unknown> = {};
+      for (const key in data as Record<string, unknown>) {
+        struct[key] = this.toStructure((data as Record<string, unknown>)[key]);
+      }
+      return struct;
+    }
+    return typeof data;
   }
 }

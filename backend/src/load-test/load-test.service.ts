@@ -1,9 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class LoadTestService {
+export class LoadTestService implements OnModuleInit {
+  private readonly logger = new Logger(LoadTestService.name);
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    const execAsync = promisify(exec);
+    try {
+      const { stdout } = await execAsync('k6 version');
+      this.logger.log(`✅ K6 binary found: ${stdout.trim()}`);
+    } catch {
+      this.logger.warn(
+        '⚠️ K6 binary NOT FOUND. Load tests will fail. Please install k6 (https://k6.io).',
+      );
+    }
+  }
 
   async create(data: {
     name: string;

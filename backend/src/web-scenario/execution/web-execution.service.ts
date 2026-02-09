@@ -631,4 +631,38 @@ export class WebExecutionService {
       where: { scenarioId },
     });
   }
+
+  async getHealingStats() {
+    // Fetch last 100 successful executions to analyze healing
+    const executions = await this.prisma.webExecution.findMany({
+      where: {
+        status: { in: ['SUCCESS', 'FAILED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: { scenario: { select: { name: true } } },
+    });
+
+    const stats: Record<string, number> = {};
+    let totalHealedEvents = 0;
+
+    for (const exec of executions) {
+      if (Array.isArray(exec.logs)) {
+        const healedLogs = exec.logs.filter(
+          (log: any) => log.status === 'HEALED',
+        );
+        if (healedLogs.length > 0) {
+          const scenarioName = exec.scenario?.name || 'Unknown Scenario';
+          stats[scenarioName] = (stats[scenarioName] || 0) + healedLogs.length;
+          totalHealedEvents += healedLogs.length;
+        }
+      }
+    }
+
+    return {
+      totalHealedEvents,
+      scenarios: stats,
+      analyzedExecutions: executions.length,
+    };
+  }
 }
