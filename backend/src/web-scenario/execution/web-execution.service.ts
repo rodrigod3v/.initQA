@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { chromium } from 'playwright';
+import { chromium, Page, Locator } from 'playwright';
 import { UtilsService } from '../../utils/utils.service';
 
 interface StepMetadata {
@@ -13,6 +13,8 @@ interface StepMetadata {
 interface ScenarioStep {
   type: string;
   selector?: string;
+  xpath?: string;
+  cssPath?: string;
   value?: string;
   metadata?: StepMetadata;
 }
@@ -25,7 +27,9 @@ export class WebExecutionService {
   ) {}
 
   async execute(scenarioId: string, environmentId?: string) {
-    console.log(`[WebExecutionService] Executing scenario: ${scenarioId}, env: ${environmentId}`);
+    console.log(
+      `[WebExecutionService] Executing scenario: ${scenarioId}, env: ${environmentId}`,
+    );
     const scenario = await this.prisma.webScenario.findUnique({
       where: { id: scenarioId },
     });
@@ -46,7 +50,9 @@ export class WebExecutionService {
     let screenshotPath: string | null = null;
 
     const browser = await chromium.launch({ headless: true });
-    console.log(`[WebExecutionService] Browser launched for scenario ${scenarioId}`);
+    console.log(
+      `[WebExecutionService] Browser launched for scenario ${scenarioId}`,
+    );
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       userAgent: 'initQA-Web-Agent/1.0',
@@ -59,14 +65,18 @@ export class WebExecutionService {
     try {
       const steps: ScenarioStep[] =
         (scenario.steps as unknown as ScenarioStep[]) || [];
-      console.log(`[WebExecutionService] Steps retrieved. Count: ${steps.length}`);
+      console.log(
+        `[WebExecutionService] Steps retrieved. Count: ${steps.length}`,
+      );
       updatedSteps = [...steps];
 
       let stepIndex = 0;
       for (const step of steps) {
         const stepStart = Date.now();
         const currentStepIdx = stepIndex + 1;
-        console.log(`[WebExecutionService] Processing step ${currentStepIdx}: ${step.type}`);
+        console.log(
+          `[WebExecutionService] Processing step ${currentStepIdx}: ${step.type}`,
+        );
         try {
           // Replace variables in selector and value
           const selector = this.utilsService.replaceVariables(
@@ -84,12 +94,12 @@ export class WebExecutionService {
             timestamp: new Date().toISOString(),
           });
 
-          let elementFoundByHealing = false;
-          let effectiveSelector = selector;
+          const effectiveSelector = selector;
 
-          // --- SELF-HEALING LOGIC ---
+          // --- LEARNING PHASE (Metadata Collection) ---
+          // Perform this BEFORE the action to ensure the element is still there
           if (
-            selector &&
+            effectiveSelector &&
             ![
               'GOTO',
               'RELOAD',
@@ -100,56 +110,42 @@ export class WebExecutionService {
             ].includes(step.type)
           ) {
             try {
-              // Try to wait for the original selector briefly
-              await page.waitForSelector(selector, {
-                state: 'attached',
-                timeout: 2000,
-              });
-            } catch (err) {
-              // Primary selector failed. Try Self-Healing if metadata exists.
-              if (step.metadata) {
-                logs.push({
-                  step: `STEP_${currentStepIdx}: SELF_HEALING`,
-                  info: `Primary selector failed. Attempting recovery using metadata...`,
-                  timestamp: new Date().toISOString(),
-                });
+              const element = page.locator(effectiveSelector).first();
+              // Short timeout for learning - it's secondary to the execution
+              const metadata = await element.evaluate(
+                (el) => {
+                  const htmlEl = el as HTMLElement;
+                  return {
+                    text: (htmlEl.innerText || htmlEl.textContent || '')
+                      .trim()
+                      .substring(0, 50),
+                    placeholder: htmlEl.getAttribute('placeholder'),
+                    role:
+                      htmlEl.getAttribute('role') ||
+                      htmlEl.tagName.toLowerCase(),
+                    name:
+                      htmlEl.getAttribute('name') ||
+                      htmlEl.getAttribute('aria-label') ||
+                      (htmlEl.innerText || htmlEl.textContent || '')
+                        .trim()
+                        .substring(0, 30),
+                  };
+                },
+                { timeout: 2000 },
+              );
 
-                const { text, placeholder, role, name } = step.metadata;
-                const healingSelectors: string[] = [];
-                if (role && name)
-                  healingSelectors.push(`role=${role}[name="${name}"]`);
-                if (text) healingSelectors.push(`text="${text}"`);
-                if (placeholder)
-                  healingSelectors.push(`placeholder="${placeholder}"`);
-
-                for (const hSelector of healingSelectors) {
-                  try {
-                    await page.waitForSelector(hSelector, {
-                      state: 'visible',
-                      timeout: 2000,
-                    });
-                    effectiveSelector = hSelector;
-                    elementFoundByHealing = true;
-                    logs.push({
-                      step: `STEP_${currentStepIdx}: SELF_HEALING`,
-                      info: `Recovered element using: ${hSelector}`,
-                      status: 'HEALED',
-                      timestamp: new Date().toISOString(),
-                    });
-                    break;
-                  } catch {
-                    continue;
-                  }
-                }
-
-                if (!elementFoundByHealing) {
-                  throw new Error(
-                    `Primary selector and recovery attempts failed for: ${selector}`,
-                  );
-                }
-              } else {
-                throw err; // No metadata, rethrow original error
+              if (JSON.stringify(step.metadata) !== JSON.stringify(metadata)) {
+                updatedSteps[stepIndex] = { ...step, metadata };
+                scenarioUpdated = true;
               }
+            } catch (learnErr: unknown) {
+              // Non-blocking
+              const message =
+                learnErr instanceof Error ? learnErr.message : String(learnErr);
+              console.warn(
+                `Learning failed for step ${currentStepIdx}:`,
+                message,
+              );
             }
           }
 
@@ -160,45 +156,182 @@ export class WebExecutionService {
                 waitUntil: 'load',
                 timeout: 60000,
               });
-              console.log(`[WebExecutionService] Navigation to ${value} successful`);
+              console.log(
+                `[WebExecutionService] Navigation to ${value} successful`,
+              );
               break;
-            case 'CLICK':
-              await page.click(effectiveSelector, { force: true });
+            case 'CLICK': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: CLICK`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.click({ force: true });
               break;
-            case 'DOUBLE_CLICK':
-              await page.dblclick(effectiveSelector, { force: true });
+            }
+            case 'DOUBLE_CLICK': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: DOUBLE_CLICK`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.dblclick({ force: true });
               break;
-            case 'RIGHT_CLICK':
-              await page.click(effectiveSelector, {
-                button: 'right',
-                force: true,
-              });
+            }
+            case 'RIGHT_CLICK': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: RIGHT_CLICK`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.click({ button: 'right', force: true });
               break;
-            case 'FILL':
-              await page.fill(effectiveSelector, value);
+            }
+            case 'FILL': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: FILL`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.fill(value);
               break;
-            case 'TYPE':
-              await page.type(effectiveSelector, value);
+            }
+            case 'TYPE': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: TYPE`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.type(value);
               break;
+            }
             case 'KEY_PRESS':
               await page.keyboard.press(value);
               break;
-            case 'HOVER':
-              await page.hover(effectiveSelector);
+            case 'HOVER': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: HOVER`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.hover();
               break;
-            case 'SELECT':
-              await page.selectOption(effectiveSelector, value);
+            }
+            case 'SELECT': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: SELECT`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.selectOption(value);
               break;
-            case 'CHECK':
-              await page.check(effectiveSelector, { force: true });
+            }
+            case 'CHECK': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: CHECK`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.check({ force: true });
               break;
-            case 'UNCHECK':
-              await page.uncheck(effectiveSelector, { force: true });
+            }
+            case 'UNCHECK': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: UNCHECK`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.uncheck({ force: true });
               break;
+            }
             case 'SUBMIT':
-              // Either click a submit button or press Enter in an input
               if (effectiveSelector) {
-                await page.click(effectiveSelector);
+                const { locator, healed, method } =
+                  await this.findElementWithHealing(
+                    page,
+                    effectiveSelector,
+                    step.metadata,
+                  );
+                if (healed)
+                  logs.push({
+                    step: `STEP_${currentStepIdx}: SUBMIT`,
+                    status: 'HEALED',
+                    info: `Self-healed via ${method}`,
+                    timestamp: new Date().toISOString(),
+                  });
+                await locator.click();
               } else {
                 await page.keyboard.press('Enter');
               }
@@ -207,20 +340,46 @@ export class WebExecutionService {
             case 'RELOAD':
               await page.reload({ waitUntil: 'load' });
               break;
-            case 'ASSERT_VISIBLE':
-              await page.waitForSelector(effectiveSelector, {
-                state: 'visible',
-                timeout: 5000,
-              });
+            case 'ASSERT_VISIBLE': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: ASSERT_VISIBLE`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.waitFor({ state: 'visible', timeout: 5000 });
               break;
+            }
             case 'ASSERT_HIDDEN':
+              // Do not heal hidden assertions, we want to know if specific element is hidden
               await page.waitForSelector(effectiveSelector, {
                 state: 'hidden',
                 timeout: 5000,
               });
               break;
             case 'ASSERT_TEXT': {
-              const textContent = await page.textContent(effectiveSelector);
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: ASSERT_TEXT`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+
+              const textContent = await locator.textContent();
               if (!textContent?.includes(value)) {
                 throw new Error(
                   `Text "${value}" not found in ${effectiveSelector}`,
@@ -229,7 +388,21 @@ export class WebExecutionService {
               break;
             }
             case 'ASSERT_VALUE': {
-              const inputVal = await page.inputValue(effectiveSelector);
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: ASSERT_VALUE`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+
+              const inputVal = await locator.inputValue();
               if (inputVal !== value) {
                 throw new Error(
                   `Value "${inputVal}" does not match expected "${value}" in ${effectiveSelector}`,
@@ -260,59 +433,29 @@ export class WebExecutionService {
               await page.waitForTimeout(ms);
               break;
             }
-            case 'SCROLL':
-              await page.locator(effectiveSelector).scrollIntoViewIfNeeded();
+            case 'SCROLL': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  page,
+                  effectiveSelector,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: SCROLL`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.scrollIntoViewIfNeeded();
               break;
+            }
             default:
               logs.push({
                 step: step.type,
                 error: 'Unknown step type',
                 timestamp: new Date().toISOString(),
               });
-          }
-
-          // --- LEARNING PHASE (Metadata Collection) ---
-          if (
-            effectiveSelector &&
-            ![
-              'GOTO',
-              'RELOAD',
-              'WAIT',
-              'ASSERT_URL',
-              'ASSERT_TITLE',
-              'KEY_PRESS',
-            ].includes(step.type)
-          ) {
-            try {
-              const element = page.locator(effectiveSelector).first();
-              const metadata = await element.evaluate((el) => {
-                const htmlEl = el as HTMLElement;
-                return {
-                  text: (htmlEl.innerText || htmlEl.textContent || '')
-                    .trim()
-                    .substring(0, 50),
-                  placeholder: htmlEl.getAttribute('placeholder'),
-                  role:
-                    htmlEl.getAttribute('role') || htmlEl.tagName.toLowerCase(),
-                  name:
-                    htmlEl.getAttribute('name') ||
-                    htmlEl.getAttribute('aria-label') ||
-                    (htmlEl.innerText || htmlEl.textContent || '')
-                      .trim()
-                      .substring(0, 30),
-                };
-              });
-
-              if (JSON.stringify(step.metadata) !== JSON.stringify(metadata)) {
-                updatedSteps[stepIndex] = { ...step, metadata };
-                scenarioUpdated = true;
-              }
-            } catch (learnErr: unknown) {
-              // Non-blocking
-              const message =
-                learnErr instanceof Error ? learnErr.message : String(learnErr);
-              console.warn('Learning failed for step', stepIndex, message);
-            }
           }
         } catch (stepError: unknown) {
           status = 'FAILED';
@@ -380,6 +523,84 @@ export class WebExecutionService {
         screenshot: screenshotPath,
       },
     });
+  }
+
+  private async findElementWithHealing(
+    page: Page,
+    selector: string,
+    metadata?: StepMetadata,
+  ): Promise<{ locator: Locator; healed: boolean; method?: string }> {
+    // 1. Attempt Original Selector (Fast Fail)
+    try {
+      const locator = page.locator(selector).first();
+      // Short timeout to detect failure quickly.
+      // If the element is not attached within 2s, we assume it's broken.
+      await locator.waitFor({ state: 'attached', timeout: 2000 });
+      return { locator, healed: false };
+    } catch (e) {
+      if (!metadata) throw e; // No metadata, let it fail naturally
+      console.warn(
+        `[Self-Healing] Selector ${selector} failed. Initiating recovery...`,
+      );
+    }
+
+    // 2. Healing Strategy
+
+    // A. Role + Name (Strongest Semantic Match)
+    if (metadata.role && metadata.name) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const locator = page
+          .getByRole(metadata.role as any, { name: metadata.name })
+          .first();
+        await locator.waitFor({ state: 'attached', timeout: 1000 });
+        console.log(
+          `[Self-Healing] Recovered via Role: ${metadata.role} name: ${metadata.name}`,
+        );
+        return { locator, healed: true, method: 'ROLE_AND_NAME' };
+      } catch {
+        // Continue to next recovery strategy
+      }
+    }
+
+    // B. Text Content (User-Visible)
+    if (metadata.text) {
+      try {
+        const locator = page.getByText(metadata.text).first();
+        await locator.waitFor({ state: 'attached', timeout: 1000 });
+        console.log(`[Self-Healing] Recovered via Text: ${metadata.text}`);
+        return { locator, healed: true, method: 'TEXT_CONTENT' };
+      } catch {
+        // Continue
+      }
+    }
+
+    // C. Placeholder (Form Fields)
+    if (metadata.placeholder) {
+      try {
+        const locator = page.getByPlaceholder(metadata.placeholder).first();
+        await locator.waitFor({ state: 'attached', timeout: 1000 });
+        console.log(`[Self-Healing] Recovered via Placeholder`);
+        return { locator, healed: true, method: 'PLACEHOLDER' };
+      } catch {
+        // Continue
+      }
+    }
+
+    // D. Name Attribute (Forms)
+    if (metadata.name) {
+      try {
+        // Fallback for name if role lookup failed (sometimes role is generic)
+        const locator = page.locator(`[name="${metadata.name}"]`).first();
+        await locator.waitFor({ state: 'attached', timeout: 1000 });
+        return { locator, healed: true, method: 'NAME_ATTRIBUTE' };
+      } catch {
+        // Continue
+      }
+    }
+
+    // Fallback: Return original to throw specific error from Playwright
+    return { locator: page.locator(selector).first(), healed: false };
   }
 
   async getHistory(scenarioId: string) {

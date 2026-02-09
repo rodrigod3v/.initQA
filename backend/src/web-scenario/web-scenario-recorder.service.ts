@@ -21,19 +21,7 @@ export class WebScenarioRecorderService {
   >();
 
   async startRecording(url: string, sessionId: string) {
-    const browser = await chromium.launch({ headless: false }); // User needs to interact! But in this environment...
-    // Wait, if it's headless: false, and the user is on another machine, they won't see it.
-    // I should probably use headless: true if I'm doing automated discovery,
-    // but the user want to "record their actions".
-    // Since the USER is likely local or expects a "remote browser" feel,
-    // I'll stick to a "Discovery" approach or a Headful browser if the OS supports it.
-    // However, in many server environments, headful fails without Xvfb.
-
-    // REVISED APPROACH: Since I cannot provide a headful browser for the user to interact with easily via web,
-    // I will implement a "Manual Step Assistant" in the UI that suggests selectors
-    // or a backend recorder that the user can use if they run it locally.
-
-    // For this task, I will implement the logic for the backend recorder.
+    const browser = await chromium.launch({ headless: true }); // Standardizing on headless for this agent
     const context = await browser.newContext();
     const page = await context.newPage();
     const steps: RecordedEvent[] = [];
@@ -48,6 +36,46 @@ export class WebScenarioRecorderService {
         addEventListener: typeof window.addEventListener;
       };
 
+      // Helper for robust path generation in-browser
+      const getRobustPaths = (el: HTMLElement) => {
+        const paths: Record<string, string> = {};
+
+        // 1. Full XPath
+        const getXPath = (element: Node | null): string => {
+          if (!element || element.nodeType !== 1) return '';
+          const htmlEl = element as HTMLElement;
+          if (htmlEl.id) return `//*[@id="${htmlEl.id}"]`;
+          const sames = Array.from(element.parentNode?.childNodes || []).filter(
+            (x) => x.nodeName === element.nodeName,
+          );
+          const index = sames.indexOf(element as ChildNode) + 1;
+          return (
+            getXPath(element.parentNode) +
+            '/' +
+            element.nodeName.toLowerCase() +
+            '[' +
+            index +
+            ']'
+          );
+        };
+        paths.xpath = getXPath(el);
+
+        // 2. CSS Path (Hierarchical)
+        const getCssPath = (element: HTMLElement | null): string => {
+          if (!element || element.nodeType !== 1) return '';
+          let path = element.tagName.toLowerCase();
+          if (element.id) return `#${element.id}`;
+          if (element.classList.length > 0) {
+            path += '.' + Array.from(element.classList).join('.');
+          }
+          const parentPath = getCssPath(element.parentElement);
+          return parentPath ? `${parentPath} > ${path}` : path;
+        };
+        paths.cssPath = getCssPath(el);
+
+        return paths;
+      };
+
       win.addEventListener(
         'click',
         (e: MouseEvent) => {
@@ -56,17 +84,22 @@ export class WebScenarioRecorderService {
             target.tagName === 'INPUT' &&
             (target as HTMLInputElement).type === 'text'
           )
-            return; // Handled by input/change
+            return;
 
-          // --- SMART SELECTOR LOGIC ---
-          // Search for the closest meaningful interactive element
           const interactive =
-            target.closest('button, a, input, [role="button"], [onclick]') ||
-            target;
+            target.closest(
+              'button, a, input, [role="button"], [onclick], select, textarea',
+            ) || target;
+
+          const el = interactive as HTMLElement;
+          const { xpath, cssPath } = getRobustPaths(el);
 
           win.recordEvent({
             type: 'CLICK',
-            selector: getSelector(interactive as HTMLElement),
+            selector: getSimpleSelector(el),
+            metadata: getMetadata(el),
+            xpath,
+            cssPath,
             timestamp: Date.now(),
           });
         },
@@ -81,10 +114,15 @@ export class WebScenarioRecorderService {
         )
           return;
 
+        const { xpath, cssPath } = getRobustPaths(target);
+
         win.recordEvent({
           type: 'FILL',
-          selector: getSelector(target),
+          selector: getSimpleSelector(target),
           value: target.value,
+          metadata: getMetadata(target),
+          xpath,
+          cssPath,
           timestamp: Date.now(),
         });
       };
@@ -92,39 +130,117 @@ export class WebScenarioRecorderService {
       window.addEventListener('input', handleInput, true);
       window.addEventListener('change', handleInput, true);
 
-      function getSelector(el: HTMLElement): string {
+      function getSimpleSelector(el: HTMLElement): string {
         const id = el.id;
         if (id && !id.includes(':')) return `#${id}`;
-
         const attr = (name: string) => el.getAttribute(name);
-
         if (attr('data-testid'))
           return `[data-testid="${attr('data-testid')}"]`;
         if (attr('name')) return `[name="${attr('name')}"]`;
-        if (attr('aria-label')) return `[aria-label="${attr('aria-label')}"]`;
-        if (attr('role')) return `[role="${attr('role')}"]`;
-        if (attr('placeholder'))
-          return `[placeholder="${attr('placeholder')}"]`;
+        return el.tagName.toLowerCase();
+      }
 
-        let selector = el.tagName.toLowerCase();
-
-        // Enrich tag selection with classes for more precision than just "div"
-        if (el.classList.length > 0) {
-          const classes = Array.from(el.classList)
-            .filter(
-              (c) => !c.includes(':') && !c.includes('[') && c.length < 50,
-            )
-            .join('.');
-          if (classes) selector += `.${classes}`;
-        }
-
-        return selector;
+      function getMetadata(el: HTMLElement) {
+        return {
+          text: (el.innerText || el.textContent || '').trim().substring(0, 50),
+          placeholder: el.getAttribute('placeholder'),
+          role: el.getAttribute('role') || el.tagName.toLowerCase(),
+          name:
+            el.getAttribute('name') ||
+            el.getAttribute('aria-label') ||
+            (el.innerText || el.textContent || '').trim().substring(0, 30),
+        };
       }
     });
 
     await page.goto(url);
     this.activeSessions.set(sessionId, { browser, context, page, steps });
     return sessionId;
+  }
+
+  async discoverPageElements(url: string) {
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    try {
+      await page.goto(url, { waitUntil: 'networkidle' });
+
+      const elements = await page.evaluate(() => {
+        const interactive = Array.from(
+          document.querySelectorAll(
+            'button, a, input, select, textarea, [role="button"], [onclick]',
+          ),
+        );
+
+        return interactive.map((el) => {
+          const htmlEl = el as HTMLElement;
+
+          const getXPath = (element: Node | null): string => {
+            if (!element || element.nodeType !== 1) return '';
+            const e = element as HTMLElement;
+            if (e.id) return `//*[@id="${e.id}"]`;
+            const sames = Array.from(
+              element.parentNode?.childNodes || [],
+            ).filter((x) => x.nodeName === element.nodeName);
+            const index = sames.indexOf(element as ChildNode) + 1;
+            return (
+              getXPath(element.parentNode) +
+              '/' +
+              element.nodeName.toLowerCase() +
+              '[' +
+              index +
+              ']'
+            );
+          };
+
+          const getCssPath = (element: HTMLElement | null): string => {
+            if (!element || element.nodeType !== 1) return '';
+            let path = element.tagName.toLowerCase();
+            if (element.id) return `#${element.id}`;
+            if (element.classList.length > 0) {
+              path += '.' + Array.from(element.classList).join('.');
+            }
+            const parentPath = getCssPath(element.parentElement);
+            return parentPath ? `${parentPath} > ${path}` : path;
+          };
+
+          const getSimpleSelector = (e: HTMLElement): string => {
+            if (e.id && !e.id.includes(':')) return `#${e.id}`;
+            const testid = e.getAttribute('data-testid');
+            if (testid) return `[data-testid="${testid}"]`;
+            const name = e.getAttribute('name');
+            if (name) return `[name="${name}"]`;
+            return e.tagName.toLowerCase();
+          };
+
+          return {
+            tagName: htmlEl.tagName,
+            text: (htmlEl.innerText || htmlEl.textContent || '')
+              .trim()
+              .substring(0, 100),
+            role: htmlEl.getAttribute('role') || htmlEl.tagName.toLowerCase(),
+            selector: getSimpleSelector(htmlEl),
+            xpath: getXPath(htmlEl),
+            cssPath: getCssPath(htmlEl),
+            metadata: {
+              name:
+                htmlEl.getAttribute('name') ||
+                htmlEl.getAttribute('aria-label') ||
+                (htmlEl.innerText || htmlEl.textContent || '')
+                  .trim()
+                  .substring(0, 50),
+              placeholder: htmlEl.getAttribute('placeholder'),
+              type: htmlEl.getAttribute('type'),
+            },
+          };
+        });
+      });
+
+      return elements;
+    } finally {
+      await browser.close();
+    }
   }
 
   async stopRecording(sessionId: string) {
@@ -138,15 +254,13 @@ export class WebScenarioRecorderService {
     return this.processSteps(session.steps);
   }
 
-  private processSteps(rawSteps: RecordedEvent[]): RecordedEvent[] {
-    // Deduplicate consecutive FILL/INPUT events for the same selector
-    const processed: RecordedEvent[] = [];
+  private processSteps(rawSteps: RecordedEvent[]): any[] {
+    const processed: any[] = [];
 
     for (let i = 0; i < rawSteps.length; i++) {
       const current = rawSteps[i];
       const next = rawSteps[i + 1];
 
-      // If current is FILL and next is ALSO FILL for the same selector, skip current
       if (
         current.type === 'FILL' &&
         next &&
@@ -156,12 +270,7 @@ export class WebScenarioRecorderService {
         continue;
       }
 
-      processed.push({
-        type: current.type,
-        selector: current.selector,
-        value: current.value,
-        timestamp: current.timestamp,
-      });
+      processed.push(current);
     }
 
     return processed;

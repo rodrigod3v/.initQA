@@ -49,7 +49,10 @@ export class WebScenarioController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateDto: UpdateWebScenarioDto) {
-    console.log(`[WebScenarioController] Updating scenario ${id}:`, JSON.stringify(updateDto));
+    console.log(
+      `[WebScenarioController] Updating scenario ${id}:`,
+      JSON.stringify(updateDto),
+    );
     return this.webScenarioService.update(id, updateDto);
   }
 
@@ -90,5 +93,14 @@ export class WebScenarioController {
   @Post('recorder/stop/:sessionId')
   async stopRecording(@Param('sessionId') sessionId: string) {
     return this.recorderService.stopRecording(sessionId);
+  }
+
+  @ApiOperation({ summary: 'Discover interactive elements on a page' })
+  @Post('discover')
+  async discover(@Body() body: { url: string }) {
+    console.log(
+      `[WebScenarioController] Discovering elements for URL: ${body.url}`,
+    );
+    return this.recorderService.discoverPageElements(body.url);
   }
 }
