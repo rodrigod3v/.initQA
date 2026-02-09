@@ -9,7 +9,11 @@ A robust, full-stack application designed for managing complex API request colle
 - **Environment Intelligence**: Side-by-side response comparison with automated diff detection.
 - **Load Testing**: Integrated **k6** engine for performance validation, triggered directly from the UI or CLI.
 - **QA Utilities**: Built-in generators for CPF, UUID, and payload mutation (Fuzzing).
-- **Professional CLI**: Dedicated CI/CD runner for head-to-head project execution.
+- **Self-Healing AI**: Smart element locator recovery using weighted scoring algorithms.
+- **Visual Flow Builder**: Drag-and-drop scenario design with **ReactFlow**.
+- **Real-Time Intelligence**: Live execution streaming and K6 performance telemetry via WebSockets.
+- **Integrity Engine**: Historical heatmaps for spotting performance degradation.
+- **Professional CLI**: Dedicated CI/CD runner with smart exit codes for pipeline integration.
 
 ## 🏗️ Architecture
 
@@ -27,6 +31,8 @@ The platform follows a modular, feature-driven design optimized for scalability:
 - React 18 / Vite / TypeScript
 - **State**: Zustand
 - **Graphics**: Lucide React / HSL-based Curated Palettes
+- **Visuals**: ReactFlow / Recharts
+- **Real-Time**: Socket.io Client
 - **Editor**: Monaco Editor (Lazy-Loaded)
 
 ### Backend

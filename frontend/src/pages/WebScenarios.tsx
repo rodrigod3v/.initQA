@@ -42,6 +42,11 @@ import { useWebScenarioHistory } from '@/features/webScenario/hooks/useWebScenar
 import { useWebScenarioExecution } from '@/features/webScenario/hooks/useWebScenarioExecution';
 import type { ExecutionResult } from '@/shared/types/api';
 
+import { ToastContainer, type ToastMessage } from '@/shared/ui/Toast';
+import { socketService, type HealingEvent } from '@/services/socket.service';
+import VisualBuilder from '@/features/webScenario/VisualBuilder/VisualBuilder';
+import ScenarioHeatmap from '@/features/webScenario/Analytics/ScenarioHeatmap';
+
 const WebScenarios: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
 
@@ -76,6 +81,7 @@ const WebScenarios: React.FC = () => {
 
     const {
         projectHistory,
+        scenarioHistory,
         fetchProjectHistory
     } = useWebScenarioHistory(effectiveProjectId, selectedScenario?.id);
 
@@ -97,7 +103,37 @@ const WebScenarios: React.FC = () => {
     const [scenarioToDelete, setScenarioToDelete] = useState<WebScenario | null>(null);
     const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
     const [scriptContent, setScriptContent] = useState('');
-    const [activeTab, setActiveTab] = useState<'results' | 'activity'>('results');
+    const [activeTab, setActiveTab] = useState<'results' | 'activity' | 'insights'>('results');
+    const [viewMode, setViewMode] = useState<'code' | 'visual'>('code');
+    const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+    useEffect(() => {
+        socketService.connect();
+        return () => socketService.disconnect();
+    }, []);
+
+    useEffect(() => {
+        if (selectedScenario) {
+            socketService.onHealing(selectedScenario.id, (data: HealingEvent) => {
+                const newToast: ToastMessage = {
+                    id: Date.now().toString(),
+                    type: 'success',
+                    title: 'Self-Healing Activated',
+                    message: `Healed via ${data.method} (Score: ${data.score})`,
+                    duration: 5000
+                };
+                setToasts(prev => [...prev, newToast]);
+            });
+
+            return () => {
+                socketService.offHealing(selectedScenario.id);
+            };
+        }
+    }, [selectedScenario]);
+
+    const removeToast = (id: string) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+    };
 
     useEffect(() => {
         if (projectId) {
@@ -476,14 +512,37 @@ const WebScenarios: React.FC = () => {
                                 <div className="h-10 border-b border-main bg-deep/50 flex items-center justify-between px-4 shrink-0">
                                     <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest">WORKFLOW_STEPS</span>
                                     <div className="flex items-center gap-1">
+                                        <div className="flex bg-deep/50 rounded p-0.5 border border-main mr-2">
+                                            <button
+                                                onClick={() => setViewMode('code')}
+                                                className={`px-2 py-0.5 text-[8px] uppercase tracking-widest rounded transition-colors ${viewMode === 'code' ? 'bg-accent text-deep font-bold' : 'text-secondary-text hover:text-white'}`}
+                                            >
+                                                List
+                                            </button>
+                                            <button
+                                                onClick={() => setViewMode('visual')}
+                                                className={`px-2 py-0.5 text-[8px] uppercase tracking-widest rounded transition-colors ${viewMode === 'visual' ? 'bg-accent text-deep font-bold' : 'text-secondary-text hover:text-white'}`}
+                                            >
+                                                Visual
+                                            </button>
+                                        </div>
                                         <Button onClick={openScriptEditor} variant="ghost" className="h-6 text-[8px] uppercase tracking-widest text-secondary-text hover:text-accent">
-                                            <Code2 size={10} className="mr-1" /> SCRIPT_MODE
+                                            <Code2 size={10} className="mr-1" /> JSON
                                         </Button>
                                         <Button onClick={addStep} variant="ghost" className="h-6 text-[8px] uppercase tracking-widest">
                                             <Plus size={10} className="mr-1" /> ADD_STEP
                                         </Button>
                                     </div>
                                 </div>
+                            </div>
+                            {viewMode === 'visual' ? (
+                                <div className="flex-1 bg-deep/20">
+                                    <VisualBuilder
+                                        initialSteps={selectedScenario.steps}
+                                        onStepsChange={(steps) => updateLocalScenario(selectedScenario.id, { steps })}
+                                    />
+                                </div>
+                            ) : (
                                 <div className="flex-1 overflow-auto p-4 space-y-3 custom-scrollbar">
                                     {selectedScenario.steps.map((step, idx) => (
                                         <div key={idx} className="flex gap-3 items-start group">
@@ -606,127 +665,135 @@ const WebScenarios: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            )}
+                        </div>
 
-                            {/* Execution Activity */}
-                            <div className="lg:col-span-2 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative min-h-[300px]">
-                                {executing && ( // Changed executing to isPlaying
-                                    <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-                                        <Loader2 className="animate-spin text-accent mb-4" size={48} />
-                                        <h2 className="text-sm font-mono font-bold text-accent uppercase tracking-[0.2em] mb-2">SPOOLING_BROWSER</h2>
-                                        <span className="text-[10px] font-mono text-secondary-text animate-pulse uppercase">Remote_Execution_Layer_Active</span>
-                                    </div>
-                                )}
+                        {/* Execution Activity */}
+                        <div className="lg:col-span-2 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative min-h-[300px]">
+                            {executing && ( // Changed executing to isPlaying
+                                <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+                                    <Loader2 className="animate-spin text-accent mb-4" size={48} />
+                                    <h2 className="text-sm font-mono font-bold text-accent uppercase tracking-[0.2em] mb-2">SPOOLING_BROWSER</h2>
+                                    <span className="text-[10px] font-mono text-secondary-text animate-pulse uppercase">Remote_Execution_Layer_Active</span>
+                                </div>
+                            )}
 
-                                <Tabs
-                                    tabs={[
-                                        { id: 'results', label: 'LIVE_LOGS' },
-                                        { id: 'activity', label: 'ACTIVITY' }
-                                    ]}
-                                    activeTab={activeTab}
-                                    onTabChange={(id) => setActiveTab(id as 'results' | 'activity')}
-                                />
+                            <Tabs
+                                tabs={[
+                                    { id: 'results', label: 'LIVE_LOGS' },
+                                    { id: 'activity', label: 'ACTIVITY' },
+                                    { id: 'insights', label: 'INSIGHTS' }
+                                ]}
+                                activeTab={activeTab}
+                                onTabChange={(id) => setActiveTab(id as 'results' | 'activity' | 'insights')}
+                            />
 
-                                <div className="flex-1 overflow-hidden bg-deep custom-scrollbar">
-                                    {activeTab === 'results' ? (
-                                        <div className="p-4 h-full overflow-auto">
-                                            {lastExecution ? (
-                                                <div className="space-y-4">
-                                                    <div className={`p-3 border-sharp border flex items-center justify-between
+                            <div className="flex-1 overflow-hidden bg-deep custom-scrollbar">
+                                {activeTab === 'results' ? (
+                                    <div className="p-4 h-full overflow-auto">
+                                        {lastExecution ? (
+                                            <div className="space-y-4">
+                                                <div className={`p-3 border-sharp border flex items-center justify-between
                                                             ${lastExecution.status === 'SUCCESS' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
-                                                        <div className="flex items-center gap-2">
-                                                            {lastExecution.status === 'SUCCESS' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                                                            <span className="text-xs font-mono font-bold uppercase tracking-wider">STATUS_{lastExecution.status}</span>
-                                                        </div>
-                                                        <span className="text-[10px] font-mono opacity-70">{lastExecution.duration}ms</span>
+                                                    <div className="flex items-center gap-2">
+                                                        {lastExecution.status === 'SUCCESS' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                                                        <span className="text-xs font-mono font-bold uppercase tracking-wider">STATUS_{lastExecution.status}</span>
                                                     </div>
+                                                    <span className="text-[10px] font-mono opacity-70">{lastExecution.duration}ms</span>
+                                                </div>
 
-                                                    {lastExecution.screenshot && (
-                                                        <div className="border border-main p-1 bg-surface">
-                                                            <p className="text-[8px] font-mono text-secondary-text uppercase mb-1 flex items-center gap-1">
-                                                                <ImageIcon size={10} /> {lastExecution.status === 'SUCCESS' ? 'FINAL_STATE_SUCCESS' : 'FAILURE_STATE_ERROR'}
-                                                            </p>
-                                                            <img src={lastExecution.screenshot} alt="Visual Proof" className="w-full grayscale hover:grayscale-0 transition-all cursor-zoom-in" />
-                                                        </div>
-                                                    )}
-
-                                                    <div className="space-y-1.5 pt-2">
-                                                        <p className="text-[9px] font-mono text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                            <Activity size={12} /> EXECUTION_TIMELINE
+                                                {lastExecution.screenshot && (
+                                                    <div className="border border-main p-1 bg-surface">
+                                                        <p className="text-[8px] font-mono text-secondary-text uppercase mb-1 flex items-center gap-1">
+                                                            <ImageIcon size={10} /> {lastExecution.status === 'SUCCESS' ? 'FINAL_STATE_SUCCESS' : 'FAILURE_STATE_ERROR'}
                                                         </p>
-                                                        {lastExecution.logs?.map((log, li) => (
-                                                            <div key={li} className="flex gap-3 text-[10px] font-mono border-l-2 border-main pl-3 pb-2 last:pb-0">
-                                                                <span className="text-[8px] opacity-40 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                                                                <div className="flex-1">
-                                                                    <div className="flex justify-between items-start">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className={log.error ? 'text-rose-500' : 'text-primary-text'}>{log.step || 'SYSTEM'}</span>
-                                                                            {log.status === 'HEALED' && (
-                                                                                <span className="flex items-center gap-1 bg-amber-500/20 text-amber-500 text-[8px] px-1 rounded animate-pulse">
-                                                                                    <Sparkles size={8} /> SELF_HEALED
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                        {log.duration && <span className="text-[8px] text-secondary-text opacity-50">{log.duration}ms</span>}
+                                                        <img src={lastExecution.screenshot} alt="Visual Proof" className="w-full grayscale hover:grayscale-0 transition-all cursor-zoom-in" />
+                                                    </div>
+                                                )}
+
+                                                <div className="space-y-1.5 pt-2">
+                                                    <p className="text-[9px] font-mono text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                        <Activity size={12} /> EXECUTION_TIMELINE
+                                                    </p>
+                                                    {lastExecution.logs?.map((log, li) => (
+                                                        <div key={li} className="flex gap-3 text-[10px] font-mono border-l-2 border-main pl-3 pb-2 last:pb-0">
+                                                            <span className="text-[8px] opacity-40 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                                            <div className="flex-1">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={log.error ? 'text-rose-500' : 'text-primary-text'}>{log.step || 'SYSTEM'}</span>
+                                                                        {log.status === 'HEALED' && (
+                                                                            <span className="flex items-center gap-1 bg-amber-500/20 text-amber-500 text-[8px] px-1 rounded animate-pulse">
+                                                                                <Sparkles size={8} /> SELF_HEALED
+                                                                            </span>
+                                                                        )}
                                                                     </div>
-                                                                    {log.info && <p className="text-[9px] text-secondary-text mt-0.5">{log.info}</p>}
-                                                                    {log.error && <p className="text-[9px] text-rose-500/80 mt-0.5 font-bold">ERROR: {log.error}</p>}
+                                                                    {log.duration && <span className="text-[8px] text-secondary-text opacity-50">{log.duration}ms</span>}
                                                                 </div>
+                                                                {log.info && <p className="text-[9px] text-secondary-text mt-0.5">{log.info}</p>}
+                                                                {log.error && <p className="text-[9px] text-rose-500/80 mt-0.5 font-bold">ERROR: {log.error}</p>}
                                                             </div>
-                                                        ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
+                                                <Monitor size={32} className="mb-4" />
+                                                <p className="text-[10px] font-mono uppercase tracking-[0.2em]">Ready_to_Initialize<br />[ Run Scenario ]</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : activeTab === 'insights' ? (
+                                    <div className="flex-1 overflow-hidden h-full">
+                                        <ScenarioHeatmap
+                                            history={scenarioHistory}
+                                            steps={selectedScenario.steps}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col h-full overflow-hidden">
+
+                                        <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-2 bg-deep/10">
+                                            {/* Show Running Scenarios First */}
+                                            {scenarios.filter(s => runningScenarios.has(s.id)).map(s => (
+                                                <div key={`running-${s.id}`} className="border-sharp border-accent/50 bg-accent/5 p-2 space-y-1 animate-pulse">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[10px] font-mono font-bold text-accent truncate max-w-[150px]">{s.name}</span>
+                                                        <span className="text-[8px] font-mono font-bold px-1 rounded-sm bg-accent/20 text-accent flex items-center gap-1">
+                                                            <Loader2 size={8} className="animate-spin" /> RUNNING
+                                                        </span>
                                                     </div>
                                                 </div>
-                                            ) : (
-                                                <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
-                                                    <Monitor size={32} className="mb-4" />
-                                                    <p className="text-[10px] font-mono uppercase tracking-[0.2em]">Ready_to_Initialize<br />[ Run Scenario ]</p>
+                                            ))}
+
+                                            {projectHistory.map((ex: ExecutionResult, idx: number) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => { setLastExecution(ex); setActiveTab('results'); }}
+                                                    className={`border-sharp border-main bg-surface/30 p-2 space-y-1 hover:border-accent/30 transition-all cursor-pointer ${lastExecution?.id === ex.id ? 'border-accent bg-accent/5' : ''}`}
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[10px] font-mono font-bold text-accent truncate max-w-[150px]">{ex.scenario?.name}</span>
+                                                        <span className={`text-[8px] font-mono font-bold px-1 rounded-sm ${ex.status === 'SUCCESS' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                            {ex.status}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-[8px] font-mono text-secondary-text">
+                                                        <span>{new Date(ex.createdAt).toLocaleTimeString()}</span>
+                                                        <span>{ex.duration}ms</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {projectHistory.length === 0 && runningScenarios.size === 0 && (
+                                                <div className="h-full flex flex-col items-center justify-center opacity-30 mt-20">
+                                                    <Activity size={32} className="mb-2" />
+                                                    <span className="text-[10px] font-mono">NO_ACTIVITY_YET</span>
                                                 </div>
                                             )}
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col h-full overflow-hidden">
-
-                                            <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-2 bg-deep/10">
-                                                {/* Show Running Scenarios First */}
-                                                {scenarios.filter(s => runningScenarios.has(s.id)).map(s => (
-                                                    <div key={`running-${s.id}`} className="border-sharp border-accent/50 bg-accent/5 p-2 space-y-1 animate-pulse">
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-[10px] font-mono font-bold text-accent truncate max-w-[150px]">{s.name}</span>
-                                                            <span className="text-[8px] font-mono font-bold px-1 rounded-sm bg-accent/20 text-accent flex items-center gap-1">
-                                                                <Loader2 size={8} className="animate-spin" /> RUNNING
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-
-                                                {projectHistory.map((ex, idx: number) => (
-                                                    <div
-                                                        key={idx}
-                                                        onClick={() => { setLastExecution(ex); setActiveTab('results'); }}
-                                                        className={`border-sharp border-main bg-surface/30 p-2 space-y-1 hover:border-accent/30 transition-all cursor-pointer ${lastExecution?.id === ex.id ? 'border-accent bg-accent/5' : ''}`}
-                                                    >
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-[10px] font-mono font-bold text-accent truncate max-w-[150px]">{ex.scenario?.name}</span>
-                                                            <span className={`text-[8px] font-mono font-bold px-1 rounded-sm ${ex.status === 'SUCCESS' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                                {ex.status}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-[8px] font-mono text-secondary-text">
-                                                            <span>{new Date(ex.createdAt).toLocaleTimeString()}</span>
-                                                            <span>{ex.duration}ms</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {projectHistory.length === 0 && runningScenarios.size === 0 && (
-                                                    <div className="h-full flex flex-col items-center justify-center opacity-30 mt-20">
-                                                        <Activity size={32} className="mb-2" />
-                                                        <span className="text-[10px] font-mono">NO_ACTIVITY_YET</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -820,45 +887,48 @@ const WebScenarios: React.FC = () => {
                 </Modal>
             </div >
             {/* Recording Modal */}
-            {showRecordModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                    <Card className="w-[400px] border-primary/20 bg-[#0B0C0E]">
-                        <div className="p-4 border-b border-white/5 flex justify-between items-center">
-                            <h3 className="text-sm font-medium flex items-center gap-2">
-                                <Sparkles size={16} className="text-primary" />
-                                Smart Recorder
-                            </h3>
-                            <button onClick={() => setShowRecordModal(false)} className="text-secondary-text hover:text-white transition-colors">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-xs text-secondary-text leading-relaxed">
-                                Enter the starting URL. A browser will open locally to record your interactions.
-                                <br />
-                                <span className="text-amber-500/80 font-medium">Note: The browser will open on the host machine.</span>
-                            </p>
-                            <input
-                                autoFocus
-                                type="text"
-                                value={recordingUrl}
-                                onChange={(e) => setRecordingUrl(e.target.value)}
-                                placeholder="https://example.com"
-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                            />
-                            <Button
-                                className="w-full h-10"
-                                onClick={handleStartRecording}
-                                disabled={!recordingUrl}
-                            >
-                                <Play size={14} className="mr-2" />
-                                START_RECORDING
-                            </Button>
-                        </div>
-                    </Card>
-                </div>
-            )}
-        </div>
+            {
+                showRecordModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                        <Card className="w-[400px] border-primary/20 bg-[#0B0C0E]">
+                            <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                                <h3 className="text-sm font-medium flex items-center gap-2">
+                                    <Sparkles size={16} className="text-primary" />
+                                    Smart Recorder
+                                </h3>
+                                <button onClick={() => setShowRecordModal(false)} className="text-secondary-text hover:text-white transition-colors">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <p className="text-xs text-secondary-text leading-relaxed">
+                                    Enter the starting URL. A browser will open locally to record your interactions.
+                                    <br />
+                                    <span className="text-amber-500/80 font-medium">Note: The browser will open on the host machine.</span>
+                                </p>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={recordingUrl}
+                                    onChange={(e) => setRecordingUrl(e.target.value)}
+                                    placeholder="https://example.com"
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                                />
+                                <Button
+                                    className="w-full h-10"
+                                    onClick={handleStartRecording}
+                                    disabled={!recordingUrl}
+                                >
+                                    <Play size={14} className="mr-2" />
+                                    START_RECORDING
+                                </Button>
+                            </div>
+                        </Card>
+                    </div>
+                )
+            }
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+        </div >
     );
 };
 

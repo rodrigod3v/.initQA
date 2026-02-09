@@ -15,6 +15,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WebScenarioModule } from './web-scenario/web-scenario.module';
 import { LoadTestModule } from './load-test/load-test.module';
 import { QueueModule } from './queue/queue.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -46,7 +47,9 @@ import { QueueModule } from './queue/queue.module';
     DashboardModule,
     WebScenarioModule,
     LoadTestModule,
+    LoadTestModule,
     QueueModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

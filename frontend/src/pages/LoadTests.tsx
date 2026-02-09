@@ -18,6 +18,7 @@ import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 import { useLoadTestStore, type LoadTest } from '@/stores/loadTestStore';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { useProjectStore, type Project } from '@/stores/projectStore';
+import LoadTestLive from '@/features/loadTest/LoadTestLive';
 
 interface Environment {
     id: string;
@@ -356,19 +357,12 @@ const LoadTests: React.FC = () => {
 
                         {/* Results Panel */}
                         <div className="lg:col-span-3 flex flex-col border-sharp border-main bg-surface/30 overflow-hidden relative min-h-[500px] lg:min-h-0">
-                            {executing && (
-                                <div className="absolute inset-0 bg-deep/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-                                    <div className="relative">
-                                        <Loader2 className="animate-spin text-accent mb-4" size={64} />
-                                        <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] text-accent" size={24} />
-                                    </div>
-                                    <h2 className="text-sm font-mono font-bold text-accent uppercase tracking-[0.2em] mb-2">ENGAGING_LOAD_GATORS</h2>
-                                    <div className="flex flex-col items-center gap-1 opacity-50">
-                                        <span className="text-[9px] font-mono text-secondary-text animate-pulse uppercase">Inhaling_K6_Metrics</span>
-                                        <div className="w-48 h-1 bg-main mt-2 overflow-hidden">
-                                            <div className="w-full h-full bg-accent animate-[shimmer_2s_infinite]"></div>
-                                        </div>
-                                    </div>
+                            {executing && selectedTest && (
+                                <div className="absolute inset-0 z-50 bg-deep">
+                                    <LoadTestLive
+                                        testId={selectedTest.id}
+                                        onFinish={() => setActiveTab('results')}
+                                    />
                                 </div>
                             )}
 

@@ -43,7 +43,7 @@ program
       console.error(
         'Error: Authentication token is required via --token or INITQA_TOKEN env',
       );
-      process.exit(1);
+      process.exit(3); // Configuration Error
     }
 
     console.log(`\n🚀 .initQA CI Runner - Project: ${projectId}`);
@@ -72,23 +72,32 @@ program
         console.error(
           '\n💥 Build failed: drift or validation errors detected.',
         );
-        process.exit(1);
+        process.exit(1); // Test Failure
       } else {
         console.log('\n✨ Build passed! No structural violations found.');
-        process.exit(0);
+        process.exit(0); // Success
       }
     } catch (err: unknown) {
       let message = 'Unknown error';
+      let exitCode = 2; // Default to Infrastructure Error
+
       if (axios.isAxiosError(err)) {
         const responseData = err.response?.data as
           | { message?: string }
           | undefined;
         message = responseData?.message || err.message;
+
+        // If it's a 4xx error (e.g. 401, 404), maybe it's config?
+        // But strictly, if the API is reachable but returns error, it might be config or infra.
+        // Let's keep 401/403 as Config (3)
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          exitCode = 3;
+        }
       } else if (err instanceof Error) {
         message = err.message;
       }
       console.error('\n❌ Execution failed:', message);
-      process.exit(1);
+      process.exit(exitCode);
     }
   });
 

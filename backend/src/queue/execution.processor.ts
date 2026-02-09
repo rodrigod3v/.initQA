@@ -12,13 +12,6 @@ interface ExecutionJobData {
   environmentId?: string;
 }
 
-interface ExecutionJobData {
-  requestId?: string;
-  environmentId?: string;
-  loadTestId?: string;
-  projectId?: string;
-}
-
 @Processor('execution')
 export class ExecutionProcessor extends WorkerHost {
   private readonly logger = new Logger(ExecutionProcessor.name);
@@ -36,8 +29,6 @@ export class ExecutionProcessor extends WorkerHost {
   async process(job: Job<ExecutionJobData, any, string>): Promise<any> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
     const { data } = job;
-
-    const { requestId, environmentId, loadTestId, projectId } = job.data;
 
     switch (job.name) {
       case 'request':

@@ -149,6 +149,7 @@ export class WebScenarioRecorderService {
             el.getAttribute('name') ||
             el.getAttribute('aria-label') ||
             (el.innerText || el.textContent || '').trim().substring(0, 30),
+          testId: el.getAttribute('data-testid'),
         };
       }
     });
@@ -232,6 +233,7 @@ export class WebScenarioRecorderService {
                   .substring(0, 50),
               placeholder: htmlEl.getAttribute('placeholder'),
               type: htmlEl.getAttribute('type'),
+              testId: htmlEl.getAttribute('data-testid'),
             },
           };
         });
@@ -254,8 +256,8 @@ export class WebScenarioRecorderService {
     return this.processSteps(session.steps);
   }
 
-  private processSteps(rawSteps: RecordedEvent[]): any[] {
-    const processed: any[] = [];
+  private processSteps(rawSteps: RecordedEvent[]): RecordedEvent[] {
+    const processed: RecordedEvent[] = [];
 
     for (let i = 0; i < rawSteps.length; i++) {
       const current = rawSteps[i];
