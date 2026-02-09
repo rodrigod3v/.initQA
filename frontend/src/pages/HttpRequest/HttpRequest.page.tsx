@@ -1,20 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { HttpRequestView } from './HttpRequest.view';
 import { useRequestStore } from '@/stores/requestStore';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, type Project } from '@/stores/projectStore';
 import api from '@/shared/api';
 import type { RequestModel } from '@/shared/types/api';
+import type { Environment } from '@/features/webScenario/hooks/useProjectMetadata';
 
 export const HttpRequestPage: React.FC = () => {
     const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
 
-    if (!projectId) {
-        return <Navigate to="/projects" replace />;
-    }
-
-    // Store State
     // Store State - Optimized Subscriptions
     const requests = useRequestStore(state => state.requests);
     const selectedRequest = useRequestStore(state => state.selectedRequest);
@@ -38,9 +34,30 @@ export const HttpRequestPage: React.FC = () => {
     const selectProject = useProjectStore(state => state.selectProject);
 
     // Environment State
-    const [environments, setEnvironments] = useState<any[]>([]);
+    const [environments, setEnvironments] = useState<Environment[]>([]);
     const [selectedEnvId, setSelectedEnvId] = useState<string>('');
-    const [projects, setProjects] = useState<any[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+
+    const fetchProjects = useCallback(async () => {
+        try {
+            const response = await api.get('/projects');
+            setProjects(response.data);
+        } catch {
+            console.error('Failed to fetch projects');
+        }
+    }, []);
+
+    const fetchEnvironments = useCallback(async (pId: string) => {
+        try {
+            const response = await api.get(`/projects/${pId}/environments`);
+            setEnvironments(response.data);
+            if (response.data.length > 0 && !selectedEnvId) {
+                setSelectedEnvId(response.data[0].id);
+            }
+        } catch {
+            console.error('Failed to fetch environments');
+        }
+    }, [selectedEnvId]);
 
     // Initial Data Fetch
     useEffect(() => {
@@ -54,38 +71,17 @@ export const HttpRequestPage: React.FC = () => {
                 try {
                     const resp = await api.get(`/projects/${projectId}`);
                     selectProject(resp.data);
-                } catch (err) {
+                } catch {
                     console.error('Failed to sync project store');
                 }
             };
             syncProject();
         }
         fetchProjects();
-    }, [projectId, selectProject]);
-
-    const fetchProjects = async () => {
-        try {
-            const response = await api.get('/projects');
-            setProjects(response.data);
-        } catch (err) {
-            console.error('Failed to fetch projects');
-        }
-    };
-
-    const fetchEnvironments = async (pId: string) => {
-        try {
-            const response = await api.get(`/projects/${pId}/environments`);
-            setEnvironments(response.data);
-            if (response.data.length > 0 && !selectedEnvId) {
-                // Keep selected env if possible, otherwise first
-                setSelectedEnvId(response.data[0].id);
-            }
-        } catch (err) {
-            console.error('Failed to fetch environments');
-        }
-    };
+    }, [projectId, selectProject, fetchRequests, fetchProjectHistory, fetchEnvironments, fetchProjects]);
 
     const handleCreateRequest = async (name: string) => {
+        if (!projectId) return;
         try {
             const isUrl = name.startsWith('http://') || name.startsWith('https://');
             const response = await api.post('/requests', {
@@ -98,18 +94,18 @@ export const HttpRequestPage: React.FC = () => {
             });
             addRequest(response.data);
             selectRequest(response.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to create request');
         }
     };
 
-    const handleExecute = React.useCallback(async () => {
+    const handleExecute = useCallback(async () => {
         if (selectedRequest) {
             await executeRequest(selectedRequest.id, selectedEnvId || undefined);
         }
     }, [selectedRequest, executeRequest, selectedEnvId]);
 
-    const updateRequestField = React.useCallback((field: keyof RequestModel, value: any) => {
+    const updateRequestField = useCallback((field: keyof RequestModel, value: unknown) => {
         if (!selectedRequest) return;
         updateLocalRequest(selectedRequest.id, { [field]: value });
     }, [selectedRequest, updateLocalRequest]);
@@ -126,7 +122,7 @@ export const HttpRequestPage: React.FC = () => {
         }
     };
 
-    const handleMagicAssert = React.useCallback(() => {
+    const handleMagicAssert = useCallback(() => {
         if (!lastResult?.response?.data || !selectedRequest) return;
 
         let script = selectedRequest.testScript || '';
@@ -140,7 +136,7 @@ export const HttpRequestPage: React.FC = () => {
         }
 
         // Schema-based assertions (simplified)
-        const generateExpects = (obj: any, path = 'pm.response.json()', depth = 0) => {
+        const generateExpects = (obj: unknown, path = 'pm.response.json()', depth = 0): string => {
             if (depth > 2) return ''; // Limit depth
             let lines = '';
             if (Array.isArray(obj)) {
@@ -149,8 +145,9 @@ export const HttpRequestPage: React.FC = () => {
                     lines += generateExpects(obj[0], `${path}[0]`, depth + 1);
                 }
             } else if (typeof obj === 'object' && obj !== null) {
-                Object.keys(obj).slice(0, 5).forEach(key => {
-                    const val = obj[key];
+                const typedObj = obj as Record<string, unknown>;
+                Object.keys(typedObj).slice(0, 5).forEach(key => {
+                    const val = typedObj[key];
                     const type = Array.isArray(val) ? 'array' : typeof val;
                     lines += `pm.test("${key} has correct type", () => {\n    pm.expect(${path}).to.have.property('${key}');\n    pm.expect(${path}.${key}).to.be.a('${type}');\n});\n`;
                 });
@@ -162,7 +159,7 @@ export const HttpRequestPage: React.FC = () => {
         updateRequestField('testScript', script);
     }, [lastResult, selectedRequest, updateRequestField]);
 
-    const handleMagicChain = React.useCallback((path: string, _value: any) => {
+    const handleMagicChain = useCallback((path: string) => {
         if (!selectedRequest) return;
         let script = selectedRequest.testScript || '';
         if (script && !script.endsWith('\n')) script += '\n';
@@ -172,6 +169,10 @@ export const HttpRequestPage: React.FC = () => {
 
         updateRequestField('testScript', script);
     }, [selectedRequest, updateRequestField]);
+
+    if (!projectId) {
+        return <Navigate to="/projects" replace />;
+    }
 
     return (
         <HttpRequestView
@@ -184,7 +185,6 @@ export const HttpRequestPage: React.FC = () => {
             isRunningSuite={batchExecuting}
             testResult={lastResult}
             projectHistory={projectHistory}
-            // New Props for full functionality
             projectId={projectId}
             projects={projects}
             onSelectProject={(id) => navigate(`/projects/${id}/requests`)}

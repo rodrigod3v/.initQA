@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '@/shared/api';
 import {
@@ -15,13 +15,22 @@ import { Card } from '@/shared/ui/Card';
 import { Tabs } from '@/shared/ui/Tabs';
 import { Modal } from '@/shared/ui/Modal';
 import { ConfirmModal } from '@/shared/ui/ConfirmModal';
-import { useLoadTestStore } from '@/stores/loadTestStore';
+import { useLoadTestStore, type LoadTest } from '@/stores/loadTestStore';
 import { Trash2, AlertTriangle } from 'lucide-react';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, type Project } from '@/stores/projectStore';
 
 interface Environment {
     id: string;
     name: string;
+}
+
+interface K6Metrics {
+    http_req_duration: { values: { avg: number; min: number; med: number; 'p(90)': number; 'p(95)': number; max: number } & Record<string, number> };
+    http_reqs: { values: { rate: number } };
+}
+
+interface K6Results {
+    metrics: K6Metrics;
 }
 
 const LoadTests: React.FC = () => {
@@ -52,59 +61,77 @@ const LoadTests: React.FC = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newTestName, setNewTestName] = useState('');
     const [activeTab, setActiveTab] = useState('config');
-    const [projects, setProjects] = useState<any[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
     const [environments, setEnvironments] = useState<Environment[]>([]);
     const [selectedEnvId, setSelectedEnvId] = useState<string>('');
 
     // Confirmation Modals
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-    const [testToDelete, setTestToDelete] = useState<any>(null);
+    const [testToDelete, setTestToDelete] = useState<LoadTest | null>(null);
     const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
 
-    useEffect(() => {
-        const id = projectId || selectedProjectId;
-        if (id) {
-            fetchTests(id);
-            fetchEnvironments(id);
-
-            // Sync selected project in store for Sidebar context
-            const syncProject = async () => {
-                try {
-                    const resp = await api.get(`/projects/${id}`);
-                    selectProject(resp.data);
-                } catch (err) {
-                    console.error('Failed to sync project store');
-                }
-            };
-            syncProject();
-        }
-        fetchProjects();
-    }, [projectId, selectedProjectId, selectProject]);
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         try {
             const response = await api.get('/projects');
             setProjects(response.data);
             if (!selectedProjectId && response.data.length > 0) {
                 setSelectedProjectId(response.data[0].id);
             }
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch projects');
         }
-    };
+    }, [selectedProjectId]);
 
-    const fetchEnvironments = async (pId: string) => {
+    const fetchEnvironments = useCallback(async (pId: string) => {
         try {
             const response = await api.get(`/projects/${pId}/environments`);
             setEnvironments(response.data);
             if (response.data.length > 0) {
                 setSelectedEnvId(response.data[0].id);
             }
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch environments');
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchProjects();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [fetchProjects]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const id = projectId || selectedProjectId;
+
+        let timer: ReturnType<typeof setTimeout>;
+        if (id) {
+            timer = setTimeout(() => {
+                if (isMounted) {
+                    fetchTests(id);
+                    fetchEnvironments(id);
+
+                    // Sync selected project in store for Sidebar context
+                    const syncProject = async () => {
+                        try {
+                            const resp = await api.get(`/projects/${id}`);
+                            if (isMounted) selectProject(resp.data);
+                        } catch {
+                            console.error('Failed to sync project store');
+                        }
+                    };
+                    syncProject();
+                }
+            }, 0);
+        }
+
+        return () => {
+            isMounted = false;
+            if (timer) clearTimeout(timer);
+        };
+    }, [projectId, selectedProjectId, selectProject, fetchTests, fetchEnvironments]);
 
     const handleCreateTest = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -127,7 +154,7 @@ const LoadTests: React.FC = () => {
             });
             setNewTestName('');
             setIsCreateModalOpen(false);
-        } catch (err) {
+        } catch {
             console.error('Failed to create test');
         }
     };
@@ -138,17 +165,17 @@ const LoadTests: React.FC = () => {
         setActiveTab('results');
     };
 
-    const updateConfig = (field: string, value: any) => {
+    const updateConfig = (field: string, value: unknown) => {
         if (!selectedTest) return;
         updateLocalTest(selectedTest.id, {
-            config: { ...selectedTest.config, [field]: value }
+            config: { ...selectedTest.config, [field]: value } as LoadTest['config']
         });
     };
 
-    const updateStage = (idx: number, field: string, value: any) => {
+    const updateStage = (idx: number, field: string, value: unknown) => {
         if (!selectedTest || !selectedTest.config.stages) return;
-        const newStages = [...selectedTest.config.stages];
-        newStages[idx] = { ...newStages[idx], [field]: value };
+        const newStages = [...(selectedTest.config.stages || [])];
+        newStages[idx] = { ...newStages[idx], [field]: value } as { duration: string; target: number };
         updateConfig('stages', newStages);
     };
 
@@ -369,42 +396,49 @@ const LoadTests: React.FC = () => {
                                 {activeTab === 'results' ? (
                                     lastExecution ? (
                                         <div className="space-y-6">
-                                            <div className="grid grid-cols-3 gap-3">
-                                                <div className="bg-surface/30 border border-main p-3">
-                                                    <p className="text-[8px] font-mono text-secondary-text uppercase mb-1">Avg_Latency</p>
-                                                    <p className="text-lg font-mono font-bold text-accent">{Math.round(lastExecution.results?.metrics?.http_req_duration?.values?.avg || 0)}ms</p>
-                                                </div>
-                                                <div className="bg-surface/30 border border-main p-3">
-                                                    <p className="text-[8px] font-mono text-secondary-text uppercase mb-1">Throughput</p>
-                                                    <p className="text-lg font-mono font-bold text-primary-text">{Math.round(lastExecution.results?.metrics?.http_reqs?.values?.rate || 0)}/s</p>
-                                                </div>
-                                                <div className={`border p-3 ${lastExecution.status === 'FINISHED' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
-                                                    <p className="text-[8px] font-mono uppercase mb-1">Exit_Status</p>
-                                                    <p className="text-lg font-mono font-bold">{lastExecution.status}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <h3 className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                                                    <BarChart3 size={14} /> DISTRIBUTION_ANALYSIS
-                                                </h3>
-                                                <div className="space-y-3">
-                                                    {[
-                                                        { label: 'Minimum', value: 'min', color: 'text-primary-text' },
-                                                        { label: 'Median', value: 'med', color: 'text-primary-text' },
-                                                        { label: '90th Percentile', value: 'p(90)', color: 'text-accent' },
-                                                        { label: '95th Percentile', value: 'p(95)', color: 'text-accent font-bold' },
-                                                        { label: 'Maximum', value: 'max', color: 'text-rose-500' }
-                                                    ].map(m => (
-                                                        <div key={m.value} className="flex justify-between items-center border-b border-main/30 pb-1">
-                                                            <span className="text-[9px] font-mono text-secondary-text uppercase">{m.label}</span>
-                                                            <span className={`text-[10px] font-mono ${m.color}`}>
-                                                                {Math.round(lastExecution.results?.metrics?.http_req_duration?.values?.[m.value] || 0)}ms
-                                                            </span>
+                                            {(() => {
+                                                const k6results = lastExecution.results as unknown as K6Results;
+                                                return (
+                                                    <>
+                                                        <div className="grid grid-cols-3 gap-3">
+                                                            <div className="bg-surface/30 border border-main p-3">
+                                                                <p className="text-[8px] font-mono text-secondary-text uppercase mb-1">Avg_Latency</p>
+                                                                <p className="text-lg font-mono font-bold text-accent">{Math.round(k6results.metrics?.http_req_duration?.values?.avg || 0)}ms</p>
+                                                            </div>
+                                                            <div className="bg-surface/30 border border-main p-3">
+                                                                <p className="text-[8px] font-mono text-secondary-text uppercase mb-1">Throughput</p>
+                                                                <p className="text-lg font-mono font-bold text-primary-text">{Math.round(k6results.metrics?.http_reqs?.values?.rate || 0)}/s</p>
+                                                            </div>
+                                                            <div className={`border p-3 ${lastExecution.status === 'FINISHED' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
+                                                                <p className="text-[8px] font-mono uppercase mb-1">Exit_Status</p>
+                                                                <p className="text-lg font-mono font-bold">{lastExecution.status}</p>
+                                                            </div>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
+
+                                                        <div className="space-y-4">
+                                                            <h3 className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                                                                <BarChart3 size={14} /> DISTRIBUTION_ANALYSIS
+                                                            </h3>
+                                                            <div className="space-y-3">
+                                                                {[
+                                                                    { label: 'Minimum', value: 'min', color: 'text-primary-text' },
+                                                                    { label: 'Median', value: 'med', color: 'text-primary-text' },
+                                                                    { label: '90th Percentile', value: 'p(90)', color: 'text-accent' },
+                                                                    { label: '95th Percentile', value: 'p(95)', color: 'text-accent font-bold' },
+                                                                    { label: 'Maximum', value: 'max', color: 'text-rose-500' }
+                                                                ].map(m => (
+                                                                    <div key={m.value} className="flex justify-between items-center border-b border-main/30 pb-1">
+                                                                        <span className="text-[9px] font-mono text-secondary-text uppercase">{m.label}</span>
+                                                                        <span className={`text-[10px] font-mono ${m.color}`}>
+                                                                            {Math.round(k6results.metrics?.http_req_duration?.values?.[m.value] || 0)}ms
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
 
                                             <div className="bg-surface/10 border border-main/30 p-4">
                                                 <p className="text-[7px] font-mono text-secondary-text uppercase mb-3 flex items-center gap-2">

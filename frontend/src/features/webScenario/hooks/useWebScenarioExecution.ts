@@ -20,7 +20,7 @@ export const useWebScenarioExecution = (
             await Promise.all(scenarios.map(async (s) => {
                 try {
                     await api.post(`/web-scenarios/${s.id}/execute${selectedEnvId ? `?environmentId=${selectedEnvId}` : ''}`);
-                } catch (e) {
+                } catch {
                     console.error(`Failed to run scenario ${s.name}`);
                 } finally {
                     setRunningScenarios(prev => {
@@ -31,7 +31,7 @@ export const useWebScenarioExecution = (
                     onHistoryUpdate();
                 }
             }));
-        } catch (err) {
+        } catch {
             console.error('Batch execution failed');
         } finally {
             setBatchExecuting(false);
@@ -44,7 +44,7 @@ export const useWebScenarioExecution = (
         try {
             await api.post(`/web-scenarios/${scenarioId}/execute${selectedEnvId ? `?environmentId=${selectedEnvId}` : ''}`);
             onHistoryUpdate();
-        } catch (err) {
+        } catch {
             console.error('Scenario execution failed');
         } finally {
             setRunningScenarios(prev => {

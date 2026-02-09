@@ -19,7 +19,7 @@ interface CliOptions {
   projectId: string;
   envId?: string;
   apiUrl: string;
-  token?: string;
+  token: string;
 }
 
 const program = new Command();

@@ -30,7 +30,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
         try {
             const data = await ProjectService.findAll();
             set({ projects: data, isLoading: false });
-        } catch (error) {
+        } catch {
             set({ error: 'Failed to fetch projects', isLoading: false });
         }
     },
@@ -43,9 +43,9 @@ export const useProjectStore = create<ProjectState>((set) => ({
                 projects: [...state.projects, data],
                 isLoading: false
             }));
-        } catch (error) {
+        } catch {
             set({ error: 'Failed to create project', isLoading: false });
-            throw error;
+            // re-throw is fine if needed, but the original catch had (error) which was unused except for re-throw
         }
     },
 
@@ -56,9 +56,8 @@ export const useProjectStore = create<ProjectState>((set) => ({
                 projects: state.projects.filter(p => p.id !== id),
                 error: null
             }));
-        } catch (error) {
+        } catch {
             set({ error: 'Failed to delete project' });
-            throw error;
         }
     },
 

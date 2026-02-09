@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/shared/api';
 import Editor from '@/shared/ui/Editor';
@@ -25,16 +25,27 @@ interface Environment {
 }
 
 interface ComparisonResult {
-    left: any;
-    right: any;
-    delta: any;
+    left: {
+        status: number;
+        duration: number;
+        response: {
+            data: unknown;
+        };
+    };
+    right: {
+        status: number;
+        duration: number;
+        response: {
+            data: unknown;
+        };
+    };
+    delta: unknown;
 }
 
 const Comparison: React.FC = () => {
     const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
 
-    // Store Hooks
     // Store State - Optimized Subscriptions
     const requests = useRequestStore(state => state.requests);
     const fetchRequests = useRequestStore(state => state.fetchRequests);
@@ -49,30 +60,7 @@ const Comparison: React.FC = () => {
     const [maskingKeys, setMaskingKeys] = useState<string[]>(['token', 'password', 'cpf', 'email']);
     const [showSettings, setShowSettings] = useState(false);
 
-    const toggleMaskingKey = (key: string) => {
-        setMaskingKeys(prev =>
-            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-        );
-    };
-
-    useEffect(() => {
-        if (projectId) {
-            // Load requests from store
-            if (requests.length === 0) {
-                fetchRequests(projectId);
-            }
-            fetchEnvironments();
-        }
-    }, [projectId]);
-
-    // Update selected request if none selected and requests load
-    useEffect(() => {
-        if (requests.length > 0 && !selectedRequestId) {
-            setSelectedRequestId(requests[0].id);
-        }
-    }, [requests]);
-
-    const fetchEnvironments = async () => {
+    const fetchEnvironments = useCallback(async () => {
         if (!projectId) {
             setLoading(false);
             return;
@@ -86,11 +74,34 @@ const Comparison: React.FC = () => {
                 setLeftEnvId(response.data[0].id);
                 setRightEnvId(response.data[1].id);
             }
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch environments');
         } finally {
             setLoading(false);
         }
+    }, [projectId]);
+
+    useEffect(() => {
+        if (projectId) {
+            // Load requests from store
+            if (requests.length === 0) {
+                fetchRequests(projectId);
+            }
+            fetchEnvironments();
+        }
+    }, [projectId, requests.length, fetchRequests, fetchEnvironments]);
+
+    // Update selected request if none selected and requests load
+    useEffect(() => {
+        if (requests.length > 0 && !selectedRequestId) {
+            setSelectedRequestId(requests[0].id);
+        }
+    }, [requests, selectedRequestId]);
+
+    const toggleMaskingKey = (key: string) => {
+        setMaskingKeys(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+        );
     };
 
     const handleCompare = async () => {
@@ -104,7 +115,7 @@ const Comparison: React.FC = () => {
                 maskingKeys
             });
             setResult(response.data);
-        } catch (err) {
+        } catch {
             console.error('Comparison failed');
         } finally {
             setComparing(false);

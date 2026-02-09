@@ -1,0 +1,43 @@
+﻿
+> frontend@0.0.0 lint
+> eslint .
+
+
+C:\Users\777\.gemini\antigravity\scratch\initQA\frontend\src\features\requests\hooks\useRequestHistory.test.ts
+  19:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 2 problems (2 errors, 0 warnings)
+
+node.exe : npm error 
+Lifecycle script `lint` 
+failed with error:
+No linha:1 caractere:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (npm  
+   error Lifec...led wit   
+ h error::String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+npm error code 1
+npm error path C:\Users\777
+\.gemini\antigravity\scratc
+h\initQA\frontend
+npm error workspace 
+frontend@0.0.0
+npm error location C:\Users
+\777\.gemini\antigravity\sc
+ratch\initQA\frontend
+npm error command failed
+npm error command C:\Window
+s\system32\cmd.exe /d /s 
+/c eslint .

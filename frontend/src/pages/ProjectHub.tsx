@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
 import api from '@/shared/api';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, type Project } from '@/stores/projectStore';
 
 interface ProjectStats {
     requests: number;
@@ -29,7 +29,7 @@ const ProjectHub: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate();
     const { selectProject } = useProjectStore();
-    const [project, setProject] = useState<any>(null);
+    const [project, setProject] = useState<Project | null>(null);
     const [stats, setStats] = useState<ProjectStats | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -56,7 +56,7 @@ const ProjectHub: React.FC = () => {
                     loadTests: loadTestsRes.data.length,
                     recentActivity: []
                 });
-            } catch (err) {
+            } catch {
                 console.error('Failed to fetch project data');
             } finally {
                 setLoading(false);

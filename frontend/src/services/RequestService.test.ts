@@ -19,7 +19,7 @@ describe('RequestService', () => {
 
     it('findAll calls client.get with correct url', async () => {
         const mockData = [{ id: '1', name: 'Test Request' }];
-        (client.get as any).mockResolvedValue({ data: mockData });
+        vi.mocked(client.get).mockResolvedValue({ data: mockData });
 
         const result = await RequestService.findAll('proj-1');
         
@@ -34,7 +34,7 @@ describe('RequestService', () => {
 
     it('findOne calls client.get with correct url', async () => {
         const mockData = { id: '1', name: 'Test Request' };
-        (client.get as any).mockResolvedValue({ data: mockData });
+        vi.mocked(client.get).mockResolvedValue({ data: mockData });
 
         const result = await RequestService.findOne('1');
         
@@ -44,7 +44,7 @@ describe('RequestService', () => {
 
     it('create calls client.post with data', async () => {
         const mockData = { name: 'New Request' };
-        (client.post as any).mockResolvedValue({ data: { id: '1', ...mockData } });
+        vi.mocked(client.post).mockResolvedValue({ data: { id: '1', ...mockData } });
 
         const result = await RequestService.create(mockData);
 
@@ -54,7 +54,7 @@ describe('RequestService', () => {
 
     it('update calls client.patch with data', async () => {
         const mockData = { name: 'Updated Request' };
-        (client.patch as any).mockResolvedValue({ data: { id: '1', ...mockData } });
+        vi.mocked(client.patch).mockResolvedValue({ data: { id: '1', ...mockData } });
 
         const result = await RequestService.update('1', mockData);
 
@@ -63,7 +63,7 @@ describe('RequestService', () => {
     });
 
     it('delete calls client.delete', async () => {
-        (client.delete as any).mockResolvedValue({});
+        vi.mocked(client.delete).mockResolvedValue({});
 
         await RequestService.delete('1');
 
@@ -72,7 +72,7 @@ describe('RequestService', () => {
 
     it('execute calls client.post with environmentId', async () => {
         const mockResponse = { status: 200, data: 'OK' };
-        (client.post as any).mockResolvedValue({ data: mockResponse });
+        vi.mocked(client.post).mockResolvedValue({ data: mockResponse });
 
         const result = await RequestService.execute('1', 'env-1');
 
@@ -82,7 +82,7 @@ describe('RequestService', () => {
 
     it('getProjectHistory calls client.get with correct url', async () => {
         const mockData = [{ id: 'hist-1' }];
-        (client.get as any).mockResolvedValue({ data: mockData });
+        vi.mocked(client.get).mockResolvedValue({ data: mockData });
 
         const result = await RequestService.getProjectHistory('proj-1');
 
@@ -91,7 +91,7 @@ describe('RequestService', () => {
     });
 
     it('clearProjectHistory calls client.delete with correct url', async () => {
-        (client.delete as any).mockResolvedValue({});
+        vi.mocked(client.delete).mockResolvedValue({});
 
         await RequestService.clearProjectHistory('proj-1');
 

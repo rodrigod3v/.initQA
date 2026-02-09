@@ -17,7 +17,7 @@ describe('ProjectService', () => {
 
     it('findAll calls client.get', async () => {
         const mockData = [{ id: '1', name: 'Project A' }];
-        (client.get as any).mockResolvedValue({ data: mockData });
+        vi.mocked(client.get).mockResolvedValue({ data: mockData });
 
         const result = await ProjectService.findAll();
 
@@ -27,7 +27,7 @@ describe('ProjectService', () => {
 
     it('create calls client.post with name', async () => {
         const mockData = { id: '1', name: 'New Project' };
-        (client.post as any).mockResolvedValue({ data: mockData });
+        vi.mocked(client.post).mockResolvedValue({ data: mockData });
 
         const result = await ProjectService.create('New Project');
 
@@ -36,7 +36,7 @@ describe('ProjectService', () => {
     });
 
     it('delete calls client.delete', async () => {
-        (client.delete as any).mockResolvedValue({});
+        vi.mocked(client.delete).mockResolvedValue({});
 
         await ProjectService.delete('1');
 

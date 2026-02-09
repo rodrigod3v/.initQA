@@ -17,7 +17,7 @@ describe('ScenarioService', () => {
 
     it('findAll calls client.get with projectId', async () => {
         const mockData = [{ id: '1', name: 'Scenario A' }];
-        (client.get as any).mockResolvedValue({ data: mockData });
+        vi.mocked(client.get).mockResolvedValue({ data: mockData });
 
         const result = await ScenarioService.findAll('proj-1');
 
@@ -28,7 +28,7 @@ describe('ScenarioService', () => {
     it('update calls client.patch with transformed data', async () => {
         const mockData = { name: 'Updated', steps: [] };
         const mockResponse = { id: '1', ...mockData };
-        (client.patch as any).mockResolvedValue({ data: mockResponse });
+        vi.mocked(client.patch).mockResolvedValue({ data: mockResponse });
 
         const result = await ScenarioService.update('1', mockData);
 
@@ -40,7 +40,7 @@ describe('ScenarioService', () => {
     });
 
     it('delete calls client.delete', async () => {
-        (client.delete as any).mockResolvedValue({});
+        vi.mocked(client.delete).mockResolvedValue({});
 
         await ScenarioService.delete('1');
 

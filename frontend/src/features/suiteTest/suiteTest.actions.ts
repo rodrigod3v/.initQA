@@ -12,7 +12,7 @@ export const suiteTestActions = {
                 status: "success",
                 results: result,
             };
-        } catch (error: any) {
+        } catch {
             return {
                 status: "error",
                 results: [],

@@ -40,6 +40,7 @@ import { useScenarioStore, type WebScenario, type Step } from '@/stores/scenario
 import { useProjectMetadata } from '@/features/webScenario/hooks/useProjectMetadata';
 import { useWebScenarioHistory } from '@/features/webScenario/hooks/useWebScenarioHistory';
 import { useWebScenarioExecution } from '@/features/webScenario/hooks/useWebScenarioExecution';
+import type { ExecutionResult } from '@/shared/types/api';
 
 const WebScenarios: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
@@ -66,7 +67,8 @@ const WebScenarios: React.FC = () => {
         selectedEnvId,
         setSelectedEnvId,
         selectedProjectId,
-        setSelectedProjectId
+        setSelectedProjectId,
+        fetchProjects
     } = useProjectMetadata(projectId);
 
     const effectiveProjectId = projectId || selectedProjectId;
@@ -84,7 +86,7 @@ const WebScenarios: React.FC = () => {
 
     // Local State
     const [executing, setExecuting] = useState(false);
-    const [lastExecution, setLastExecution] = useState<any>(null);
+    const [lastExecution, setLastExecution] = useState<ExecutionResult | null>(null);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingUrl, setRecordingUrl] = useState('');
     const [showRecordModal, setShowRecordModal] = useState(false);
@@ -97,21 +99,21 @@ const WebScenarios: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'results' | 'activity'>('results');
 
     useEffect(() => {
-        if (effectiveProjectId) {
-            fetchScenarios(effectiveProjectId);
+        if (projectId) {
+            fetchScenarios(projectId);
 
             // Sync selected project in store for Sidebar context
             const syncProject = async () => {
-                try {
-                    const resp = await api.get(`/projects/${effectiveProjectId}`);
-                    selectProject(resp.data);
-                } catch (err) {
-                    console.error('Failed to sync project store');
+                const project = projects.find(p => p.id === projectId);
+                if (project) {
+                    selectProject(project);
+                } else if (projects.length === 0) {
+                    await fetchProjects();
                 }
             };
             syncProject();
         }
-    }, [effectiveProjectId, selectProject]);
+    }, [projectId, fetchScenarios, projects, selectProject, fetchProjects]);
 
     const handleStartRecording = async () => {
         if (!recordingUrl) return;
@@ -126,8 +128,8 @@ const WebScenarios: React.FC = () => {
                 url: recordingUrl,
                 sessionId
             });
-        } catch (err) {
-            console.error('Failed to start recording', err);
+        } catch {
+            console.error('Failed to start recording');
             setIsRecording(false);
         }
     };
@@ -142,16 +144,16 @@ const WebScenarios: React.FC = () => {
 
             if (recordedSteps && recordedSteps.length > 0) {
                 // Map recorded steps to scenario format
-                const newSteps = [...(selectedScenario?.steps || []), ...recordedSteps.map((s: any) => ({ // Changed currentScenario to selectedScenario
+                const newSteps = [...(selectedScenario?.steps || []), ...recordedSteps.map((s: Step) => ({
                     type: s.type,
                     selector: s.selector,
                     value: s.value
                 }))];
 
-                await updateLocalScenario(selectedScenario!.id, { steps: newSteps }); // Changed currentScenario to selectedScenario
+                await updateLocalScenario(selectedScenario!.id, { steps: newSteps });
             }
-        } catch (err) {
-            console.error('Failed to stop recording', err);
+        } catch {
+            console.error('Failed to stop recording');
         } finally {
             setIsRecording(false);
             localStorage.removeItem('initqa_recording_session');
@@ -189,7 +191,7 @@ const WebScenarios: React.FC = () => {
         try {
             await deleteScenario(scenarioToDelete.id);
             setScenarioToDelete(null);
-        } catch (err) {
+        } catch {
             console.error('Failed to delete scenario');
             alert('Failed to delete scenario');
         }
@@ -215,7 +217,7 @@ const WebScenarios: React.FC = () => {
             setNewScenarioName('');
             setIsCreateModalOpen(false);
             setScenarioToEdit(null);
-        } catch (err) {
+        } catch {
             console.error('Failed to save scenario');
         }
     };
@@ -231,7 +233,7 @@ const WebScenarios: React.FC = () => {
             setLastExecution(response.data);
             fetchProjectHistory();
             setActiveTab('results');
-        } catch (err) {
+        } catch {
             console.error('Execution failed');
         } finally {
             setExecuting(false);
@@ -240,8 +242,8 @@ const WebScenarios: React.FC = () => {
 
     const addStep = () => {
         if (!selectedScenario) return;
-        const newSteps = [...selectedScenario.steps, { type: 'CLICK', selector: '' }];
-        updateLocalScenario(selectedScenario.id, { steps: newSteps as any });
+        const newSteps: Step[] = [...selectedScenario.steps, { type: 'CLICK', selector: '' }];
+        updateLocalScenario(selectedScenario.id, { steps: newSteps });
     };
 
     const updateStep = (index: number, field: keyof Step, value: string) => {
@@ -514,7 +516,7 @@ const WebScenarios: React.FC = () => {
                                                         </div>
                                                         <select
                                                             value={step.type}
-                                                            onChange={(e) => updateStep(idx, 'type', e.target.value as any)}
+                                                            onChange={(e) => updateStep(idx, 'type', e.target.value)}
                                                             className="w-full bg-surface border-sharp border-main px-2 py-1 text-[10px] font-mono text-accent focus:outline-none"
                                                         >
                                                             <optgroup label="NAVIGATION" className="bg-deep text-[10px]">
@@ -631,7 +633,7 @@ const WebScenarios: React.FC = () => {
                                                         <p className="text-[9px] font-mono text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
                                                             <Activity size={12} /> EXECUTION_TIMELINE
                                                         </p>
-                                                        {(lastExecution.logs as any[]).map((log, li) => (
+                                                        {lastExecution.logs?.map((log, li) => (
                                                             <div key={li} className="flex gap-3 text-[10px] font-mono border-l-2 border-main pl-3 pb-2 last:pb-0">
                                                                 <span className="text-[8px] opacity-40 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                                                 <div className="flex-1">
@@ -676,7 +678,7 @@ const WebScenarios: React.FC = () => {
                                                     </div>
                                                 ))}
 
-                                                {projectHistory.map((ex: any, idx: number) => (
+                                                {projectHistory.map((ex, idx: number) => (
                                                     <div
                                                         key={idx}
                                                         onClick={() => { setLastExecution(ex); setActiveTab('results'); }}

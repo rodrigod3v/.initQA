@@ -65,6 +65,6 @@ export class ProjectController {
     @Param('id') id: string,
     @Body('environmentId') environmentId?: string,
   ) {
-    return this.projectService.runAllAsync(id, environmentId);
+    return this.projectService.runAll(id, environmentId);
   }
 }

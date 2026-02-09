@@ -30,7 +30,7 @@ const Projects: React.FC = () => {
 
     useEffect(() => {
         fetchProjects();
-    }, []);
+    }, [fetchProjects]);
 
     const handleCreateProject = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,7 +41,7 @@ const Projects: React.FC = () => {
             await createProject(newProjectName);
             setNewProjectName('');
             setIsModalOpen(false);
-        } catch (err) {
+        } catch {
             console.error('Failed to create project');
         } finally {
             setCreating(false);
@@ -54,7 +54,7 @@ const Projects: React.FC = () => {
             await deleteProject(projectToDelete.id);
             setProjectToDelete(null); // Close modal automatically via state cleanup logic if needed, or manual close
             setIsConfirmOpen(false);
-        } catch (err) {
+        } catch {
             console.error('Failed to delete project');
         }
     }, [projectToDelete, deleteProject]);

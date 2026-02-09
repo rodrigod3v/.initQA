@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Terminal, ShieldCheck, AlertCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import api from '@/shared/api';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
@@ -25,8 +25,10 @@ const Login: React.FC = () => {
             const response = await api.post('/auth/login', { email, password });
             login(response.data.access_token);
             navigate('/projects');
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Authentication failed. Check your credentials.');
+        } catch (err: unknown) {
+            const errorResponse = err as { response?: { data?: { message?: string } } };
+            const message = errorResponse.response?.data?.message || 'Authentication failed. Check your credentials.';
+            setError(message);
         } finally {
             setIsLoading(false);
         }

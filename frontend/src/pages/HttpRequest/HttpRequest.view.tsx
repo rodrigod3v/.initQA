@@ -23,6 +23,8 @@ import { Tabs } from '@/shared/ui/Tabs';
 import { httpRequestStyles as S } from './HttpRequest.styles';
 import type { SyncStatus } from '@/stores/requestStore';
 import type { RequestModel, ExecutionResult } from '@/shared/types/api';
+import type { Project } from '@/stores/projectStore';
+import type { Environment } from '@/features/webScenario/hooks/useProjectMetadata';
 
 interface HttpRequestViewProps {
     requests: RequestModel[];
@@ -37,22 +39,22 @@ interface HttpRequestViewProps {
 
     // Restoration Props
     projectId?: string;
-    projects: any[];
+    projects: Project[];
     onSelectProject: (id: string) => void;
-    environments: any[];
+    environments: Environment[];
     selectedEnvId: string;
     onSelectEnv: (id: string) => void;
     onCreateEnv: (name: string, vars: string) => Promise<void>;
     onDeleteEnv: (id: string) => Promise<void>;
     syncStatus: SyncStatus;
     onDelete: () => Promise<void>;
-    onUpdateRequest: (field: keyof RequestModel, value: any) => void;
+    onUpdateRequest: (field: keyof RequestModel, value: unknown) => void;
     onCreateRequest: (name: string) => Promise<void>;
     onDeleteRequest: (id: string) => Promise<void>;
     onClearHistory: () => Promise<void>;
     onViewHistory: (execution: ExecutionResult) => void;
     onMagicAssert: () => void;
-    onMagicChain: (path: string, value: any) => void;
+    onMagicChain: (path: string, value: unknown) => void;
 }
 
 export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
@@ -104,7 +106,7 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
     }, [isRunningSuite]);
 
 
-    const formatEditorValue = (val: any) => {
+    const formatEditorValue = (val: unknown) => {
         if (!val) return '{}';
         if (typeof val === 'string') return val;
         return JSON.stringify(val, null, 2);
@@ -346,7 +348,7 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                         {testResult && (
                             <div className="flex items-center gap-2">
                                 <span className="text-[9px] font-mono text-secondary-text">{testResult.duration}ms</span>
-                                <div className={S.latestExecutionStatus(testResult.status)}>{testResult.status}</div>
+                                <div className={S.latestExecutionStatus(Number(testResult.status))}>{testResult.status}</div>
                             </div>
                         )}
                     </div>
@@ -433,7 +435,7 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                                 </div>
                                                 {!testResult.validationResult.valid && testResult.validationResult.errors && (
                                                     <div className="p-3 bg-deep/50 space-y-1">
-                                                        {testResult.validationResult.errors.map((err: any, idx: number) => (
+                                                        {(testResult.validationResult.errors as Array<{ instancePath: string, message: string }>).map((err, idx) => (
                                                             <div key={idx} className="font-mono text-[10px] text-rose-400 flex gap-2 items-start">
                                                                 <span className="opacity-50 mt-0.5">•</span>
                                                                 <span>
@@ -538,12 +540,12 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                                     <span className="text-[10px] font-mono text-primary truncate">{h.request?.name || 'Unknown_Request'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <div className={S.historyItemIndicator(h.status)} />
+                                                    <div className={S.historyItemIndicator(Number(h.status))} />
                                                     <div className={S.historyItemStatus}>Status_{h.status}</div>
                                                 </div>
 
                                                 {/* Error Message Display */}
-                                                {(h.status === 0 || h.status >= 400 || h.response?.error) && (
+                                                {(Number(h.status) === 0 || Number(h.status) >= 400 || h.response?.error) && (
                                                     <div className="mt-1.5 p-1.5 bg-rose-500/10 border border-rose-500/20 rounded text-[9px] font-mono text-rose-400 break-words leading-tight">
                                                         <span className="font-bold opacity-70 block mb-0.5">FAILURE_REASON:</span>
                                                         {h.response?.message || h.response?.error || 'Unknown Error'}
@@ -552,7 +554,7 @@ export const HttpRequestView: React.FC<HttpRequestViewProps> = (props) => {
                                             </div>
                                             <div className="flex flex-col items-end gap-1 shrink-0">
                                                 <span className={S.historyItemDuration}>{h.duration}ms</span>
-                                                <RotateCcw size={10} className="text-secondary-text opacity-30 cursor-pointer hover:opacity-100 transition-opacity" title="Re-run" />
+                                                <RotateCcw size={10} className="text-secondary-text opacity-30 cursor-pointer hover:opacity-100 transition-opacity" />
                                             </div>
                                         </div>
                                     ))}
