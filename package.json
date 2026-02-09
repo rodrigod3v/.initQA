@@ -13,7 +13,9 @@
     "start:dev": "npm run start:dev -w backend",
     "start:frontend": "npm run dev -w frontend",
     "test:backend": "npm run test -w backend",
-    "build": "npm run build -w backend && npm run build -w frontend"
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run"
   },
   "keywords": [],
   "author": "",
@@ -21,5 +23,8 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "cypress": "^15.9.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1"
   }
 }

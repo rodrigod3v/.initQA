@@ -52,6 +52,7 @@ const WebScenarios: React.FC = () => {
     const scenarios = useScenarioStore(state => state.scenarios);
     const selectedScenario = useScenarioStore(state => state.selectedScenario);
     const isLoading = useScenarioStore(state => state.isLoading);
+    const syncStatus = useScenarioStore(state => state.syncStatus);
 
     const fetchScenarios = useScenarioStore(state => state.fetchScenarios);
     const selectScenario = useScenarioStore(state => state.selectScenario);
@@ -437,13 +438,33 @@ const WebScenarios: React.FC = () => {
                                         <Button
                                             variant="primary"
                                             onClick={handleRunScenario}
-                                            disabled={executing || isRecording}
+                                            disabled={executing || isRecording || syncStatus === 'saving'}
                                             glow
                                             className="px-6 text-[10px] uppercase tracking-widest h-full"
                                         >
                                             {executing ? <Loader2 className="animate-spin mr-2" size={14} /> : <Play size={14} className="mr-2" />}
                                             {executing ? 'RUNNING...' : 'RUN_TEST'}
                                         </Button>
+                                    </div>
+                                    <div className="flex items-center ml-2 border-l border-main pl-4 h-full">
+                                        {syncStatus === 'saving' && (
+                                            <div className="flex items-center gap-2 text-amber-500 animate-pulse">
+                                                <Loader2 size={12} className="animate-spin" />
+                                                <span className="text-[9px] font-mono uppercase tracking-widest">Saving...</span>
+                                            </div>
+                                        )}
+                                        {syncStatus === 'saved' && (
+                                            <div className="flex items-center gap-2 text-emerald-500">
+                                                <CheckCircle2 size={12} />
+                                                <span className="text-[9px] font-mono uppercase tracking-widest">Steps Persisted</span>
+                                            </div>
+                                        )}
+                                        {syncStatus === 'error' && (
+                                            <div className="flex items-center gap-2 text-rose-500">
+                                                <XCircle size={12} />
+                                                <span className="text-[9px] font-mono uppercase tracking-widest">Sync Error</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

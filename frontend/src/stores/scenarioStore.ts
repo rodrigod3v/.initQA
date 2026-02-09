@@ -109,6 +109,12 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
     },
 
     saveScenario: async (id) => {
+        // Cancel any pending debounced save for this ID
+        if (saveTimeout) {
+            clearTimeout(saveTimeout);
+            saveTimeout = null;
+        }
+
         const scenario = get().scenarios.find(s => s.id === id);
         if (!scenario) return;
 
