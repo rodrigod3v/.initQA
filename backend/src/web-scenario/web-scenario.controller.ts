@@ -85,6 +85,11 @@ export class WebScenarioController {
     return this.webExecutionService.getProjectHistory(projectId);
   }
 
+  @Post('project-history/:projectId')
+  async clearProjectHistory(@Param('projectId') projectId: string) {
+    return this.webExecutionService.clearProjectHistory(projectId);
+  }
+
   @Post(':id/history')
   async clearHistory(@Param('id') id: string) {
     return this.webExecutionService.clearHistory(id);

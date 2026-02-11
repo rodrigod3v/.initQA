@@ -8,6 +8,7 @@ export interface Step {
     type: string;
     selector?: string;
     value?: string;
+    metadata?: any;
 }
 
 export interface WebScenario {

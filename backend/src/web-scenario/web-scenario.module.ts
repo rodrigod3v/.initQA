@@ -5,9 +5,10 @@ import { WebExecutionService } from './execution/web-execution.service';
 import { WebScenarioRecorderService } from './web-scenario-recorder.service';
 import { UtilsModule } from '../utils/utils.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { CartographerModule } from './cartographer/cartographer.module';
 
 @Module({
-  imports: [PrismaModule, UtilsModule],
+  imports: [PrismaModule, UtilsModule, CartographerModule],
   controllers: [WebScenarioController],
   providers: [
     WebScenarioService,

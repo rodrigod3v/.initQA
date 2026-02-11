@@ -51,7 +51,35 @@ class SocketService {
     this.socket.off(`load-test/${loadTestId}/metrics`);
   }
 
-  // Future methods for logs, etc.
+  onRecorderStop(sessionId: string, callback: (data: { steps: any[] }) => void) {
+    if (!this.socket) return;
+    this.socket.on(`recorder/${sessionId}/stopped`, callback);
+  }
+
+  offRecorderStop(sessionId: string) {
+    if (!this.socket) return;
+    this.socket.off(`recorder/${sessionId}/stopped`);
+  }
+
+  onProgress(scenarioId: string, callback: (data: { current: number; total: number; type: string }) => void) {
+    if (!this.socket) return;
+    this.socket.on(`scenario/${scenarioId}/progress`, callback);
+  }
+
+  offProgress(scenarioId: string) {
+    if (!this.socket) return;
+    this.socket.off(`scenario/${scenarioId}/progress`);
+  }
+
+  onMappingStatus(projectId: string, callback: (data: { status: string; pagesMapped?: number; error?: string }) => void) {
+    if (!this.socket) return;
+    this.socket.on(`project/${projectId}/mapping-status`, callback);
+  }
+
+  offMappingStatus(projectId: string) {
+    if (!this.socket) return;
+    this.socket.off(`project/${projectId}/mapping-status`);
+  }
 }
 
 export const socketService = new SocketService();
