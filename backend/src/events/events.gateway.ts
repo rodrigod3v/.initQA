@@ -39,4 +39,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitLoadMetrics(loadTestId: string, metrics: any) {
     this.server.emit(`load-test/${loadTestId}/metrics`, metrics);
   }
+
+  emitRecordingStopped(sessionId: string, steps: any[]) {
+    this.server.emit(`recorder/${sessionId}/stopped`, { steps });
+  }
+
+  emitProgress(sessionId: string, progress: { current: number; total: number; type: string }) {
+    this.server.emit(`scenario/${sessionId}/progress`, progress);
+  }
+
+  emitMappingStatus(projectId: string, status: { status: string; pagesMapped?: number; error?: string }) {
+    this.server.emit(`project/${projectId}/mapping-status`, status);
+  }
 }

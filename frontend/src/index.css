@@ -93,3 +93,33 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ReactFlow Custom Styling */
+.react-flow__controls {
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.react-flow__controls-button {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-main) !important;
+  border-bottom: none !important;
+  color: var(--accent) !important;
+  fill: var(--accent) !important;
+  transition: all 0.2s ease !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: 1px solid var(--border-main) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--border-main) !important;
+  color: #fff !important;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+}

@@ -45,10 +45,24 @@ export const useWebScenarioHistory = (projectId?: string, selectedScenarioId?: s
         }
     }, [selectedScenarioId, fetchScenarioHistory]);
 
+    const clearProjectHistory = useCallback(async () => {
+        if (!projectId) return;
+        try {
+            await api.post(`/web-scenarios/project-history/${projectId}`);
+            setProjectHistory([]);
+            setScenarioHistory([]);
+            return true;
+        } catch {
+            console.error('Failed to clear project history');
+            return false;
+        }
+    }, [projectId]);
+
     return {
         projectHistory,
         scenarioHistory,
         fetchProjectHistory,
-        fetchScenarioHistory
+        fetchScenarioHistory,
+        clearProjectHistory
     };
 };

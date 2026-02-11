@@ -25,6 +25,7 @@ Execute o comando abaixo para subir todos os serviços (Banco de Dados, Redis, B
 
 ```bash
 docker-compose up -d --build
+matar o docker = wsl --shutdown
 ```
 
 ### 3. Acessar o Projeto
@@ -36,14 +37,17 @@ docker-compose up -d --build
 ## Resolução de Problemas
 
 ### Erro: "unable to get image" ou "open //./pipe/dockerDesktopLinuxEngine"
+
 Este erro geralmente significa que o **Docker Desktop** não está aberto ou o engine não iniciou corretamente.
 
 **Solução:**
+
 1. Abra o aplicativo **Docker Desktop** no Windows.
 2. Espere o ícone da baleia na barra de tarefas ficar estável (não piscando).
 3. Tente rodar o comando `docker-compose up -d --build` novamente.
 
 ### Erro: "P3019" (Mismatch migrations)
+
 O projeto anteriormente usava SQLite e as migrações antigas eram incompatíveis com o PostgreSQL do Docker.
 
 **Solução:**

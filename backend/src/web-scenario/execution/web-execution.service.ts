@@ -97,6 +97,12 @@ export class WebExecutionService {
             timestamp: new Date().toISOString(),
           });
 
+          this.eventsGateway.emitProgress(scenario.id, {
+            current: currentStepIdx,
+            total: steps.length,
+            type: step.type,
+          });
+
           const effectiveSelector = selector;
 
           // --- LEARNING PHASE (Metadata Collection) ---
@@ -232,7 +238,18 @@ export class WebExecutionService {
                   info: `Self-healed via ${method}`,
                   timestamp: new Date().toISOString(),
                 });
-              await locator.fill(value);
+
+              // Robustness check: handle different element types in FILL
+              const tagName = await locator.evaluate(el => el.tagName.toLowerCase());
+              const type = await locator.getAttribute('type');
+
+              if (tagName === 'select') {
+                await locator.selectOption(value);
+              } else if (type === 'radio' || type === 'checkbox') {
+                await locator.check({ force: true });
+              } else {
+                await locator.fill(value);
+              }
               break;
             }
             case 'TYPE': {
@@ -344,7 +361,7 @@ export class WebExecutionService {
                     info: `Self-healed via ${method}`,
                     timestamp: new Date().toISOString(),
                   });
-                await locator.click();
+                await locator.click({ force: true });
               } else {
                 await page.keyboard.press('Enter');
               }
@@ -707,6 +724,14 @@ export class WebExecutionService {
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
+    });
+  }
+
+  async clearProjectHistory(projectId: string) {
+    return this.prisma.webExecution.deleteMany({
+      where: {
+        scenario: { projectId },
+      },
     });
   }
 

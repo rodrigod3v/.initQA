@@ -106,8 +106,16 @@ const VisualBuilder: React.FC<VisualBuilderProps> = ({ initialSteps, onStepsChan
                 fitView
             >
                 <Controls />
-                <MiniMap />
-                <Background gap={12} size={1} />
+                <MiniMap
+                    maskColor="rgba(0, 0, 0, 0.4)"
+                    style={{
+                        backgroundColor: '#0B0C0E',
+                        border: '1px solid rgba(0, 255, 194, 0.2)',
+                        borderRadius: '4px'
+                    }}
+                    nodeColor="#00FFC2"
+                />
+                <Background gap={12} size={1} color="rgba(255, 255, 255, 0.05)" />
             </ReactFlow>
         </div>
     );
