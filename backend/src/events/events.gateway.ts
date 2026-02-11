@@ -25,30 +25,30 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   emitLog(sessionId: string, log: any) {
-    this.server.emit(`scenario/${sessionId}/log`, log);
+    this.server?.emit(`scenario/${sessionId}/log`, log);
   }
 
   emitStatus(sessionId: string, status: string) {
-    this.server.emit(`scenario/${sessionId}/status`, { status });
+    this.server?.emit(`scenario/${sessionId}/status`, { status });
   }
 
   emitHealing(sessionId: string, healingInfo: any) {
-    this.server.emit(`scenario/${sessionId}/healing`, healingInfo);
+    this.server?.emit(`scenario/${sessionId}/healing`, healingInfo);
   }
 
   emitLoadMetrics(loadTestId: string, metrics: any) {
-    this.server.emit(`load-test/${loadTestId}/metrics`, metrics);
+    this.server?.emit(`load-test/${loadTestId}/metrics`, metrics);
   }
 
   emitRecordingStopped(sessionId: string, steps: any[]) {
-    this.server.emit(`recorder/${sessionId}/stopped`, { steps });
+    this.server?.emit(`recorder/${sessionId}/stopped`, { steps });
   }
 
   emitProgress(sessionId: string, progress: { current: number; total: number; type: string }) {
-    this.server.emit(`scenario/${sessionId}/progress`, progress);
+    this.server?.emit(`scenario/${sessionId}/progress`, progress);
   }
 
   emitMappingStatus(projectId: string, status: { status: string; pagesMapped?: number; error?: string }) {
-    this.server.emit(`project/${projectId}/mapping-status`, status);
+    this.server?.emit(`project/${projectId}/mapping-status`, status);
   }
 }

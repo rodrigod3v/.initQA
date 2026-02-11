@@ -19,4 +19,9 @@ export class CartographerController {
   async generateJSON(@Param('projectId') projectId: string) {
     return this.cartographerService.generateOracleJSON(projectId);
   }
+
+  @Get('generate-scenarios/:projectId')
+  async generateScenarios(@Param('projectId') projectId: string) {
+    return this.cartographerService.generateTestScenarios(projectId);
+  }
 }

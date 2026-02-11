@@ -9,6 +9,8 @@ A robust, full-stack application designed for managing complex API request colle
 - **Environment Intelligence**: Side-by-side response comparison with automated diff detection.
 - **Load Testing**: Integrated **k6** engine for performance validation, triggered directly from the UI or CLI.
 - **QA Utilities**: Built-in generators for CPF, UUID, and payload mutation (Fuzzing).
+- **Advanced Web Orchestration (Road to 100%)**: Recursive iFrame discovery and support for complex interactions (`HOVER`, `DRAG_AND_DROP`, `SWITCH_FRAME`).
+- **Outcome Observation**: Real-time monitoring of UI feedback, status codes, and dynamic notifications after interactions.
 - **Self-Healing AI**: Smart element locator recovery using weighted scoring algorithms.
 - **Visual Flow Builder**: Drag-and-drop scenario design with **ReactFlow**.
 - **Real-Time Intelligence**: Live execution streaming and K6 performance telemetry via WebSockets.

@@ -19,7 +19,7 @@ async function bootstrap() {
   const oracle = app.get(OracleService);
   const prisma = app.get(PrismaService);
 
-  const url = 'https://demo.automationtesting.in/Register.html';
+  const url = 'https://demoqa.com/webtables';
   console.log(`\n🚀 Testing Semantic Brain with: ${url}`);
 
   try {
@@ -39,6 +39,10 @@ async function bootstrap() {
     console.log('--- GENERATED SCRIPT ---');
     console.log(script);
     console.log('------------------------');
+
+    console.log('\n--- Phase 3: Generating Oracle JSON ---');
+    const json = await oracle.generateTestJSON(project.id);
+    console.log(JSON.stringify(json, null, 2));
 
   } catch (error) {
     console.error('Error during test:', error);

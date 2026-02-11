@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '@/shared/api';
 import {
@@ -32,11 +32,15 @@ import {
     Layers,
     Zap,
     BrainCircuit,
-    Search
+    Pause,
+    StopCircle,
+    MessageSquare
 } from 'lucide-react';
+
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
+import { ConfirmModal } from '@/shared/ui/ConfirmModal';
 import { Tabs } from '@/shared/ui/Tabs';
 
 import { useProjectStore } from '@/stores/projectStore';
@@ -106,18 +110,50 @@ const WebScenarios: React.FC = () => {
     const [newScenarioName, setNewScenarioName] = useState('');
     const [scenarioToEdit, setScenarioToEdit] = useState<WebScenario | null>(null);
     const [scenarioToDelete, setScenarioToDelete] = useState<WebScenario | null>(null);
+    const [showClearStepsModal, setShowClearStepsModal] = useState(false);
+    const [showClearHistoryModal, setShowClearHistoryModal] = useState(false);
     const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
     const [scriptContent, setScriptContent] = useState('');
     const [activeTab, setActiveTab] = useState<'results' | 'activity' | 'insights' | 'brain'>('results');
     const [viewMode, setViewMode] = useState<'code' | 'visual'>('code');
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
     const [executionProgress, setExecutionProgress] = useState<{ current: number; total: number; type: string } | null>(null);
-    const [discoveredElements, setDiscoveredElements] = useState<any[]>([]);
-    const [isDiscovering, setIsDiscovering] = useState(false);
+    const [executionState, setExecutionState] = useState<'IDLE' | 'RUNNING' | 'PAUSED' | 'STOPPED'>('IDLE');
     const [isMappingBrain, setIsMappingBrain] = useState(false);
     const [brainScript, setBrainScript] = useState('');
     const [mappingUrl, setMappingUrl] = useState('');
     const [mappingStatus, setMappingStatus] = useState<{ status: string; pagesMapped?: number; error?: string } | null>(null);
+
+    const handlePause = async () => {
+        if (!selectedScenario) return;
+        try {
+            await api.post(`/web-scenarios/${selectedScenario.id}/pause`);
+            setExecutionState('PAUSED');
+        } catch (err) {
+            console.error('Pause failed', err);
+        }
+    };
+
+    const handleResume = async () => {
+        if (!selectedScenario) return;
+        try {
+            await api.post(`/web-scenarios/${selectedScenario.id}/resume`);
+            setExecutionState('RUNNING');
+        } catch (err) {
+            console.error('Resume failed', err);
+        }
+    };
+
+    const handleStop = async () => {
+        if (!selectedScenario) return;
+        try {
+            await api.post(`/web-scenarios/${selectedScenario.id}/stop`);
+            setExecutionState('IDLE');
+            setExecuting(false);
+        } catch (err) {
+            console.error('Stop failed', err);
+        }
+    };
 
     const startSemanticMapping = async () => {
         if (!mappingUrl || !effectiveProjectId) return;
@@ -155,23 +191,54 @@ const WebScenarios: React.FC = () => {
     const generateOracleJSON = async () => {
         if (!effectiveProjectId || !selectedScenario) return;
         try {
-            const response = await api.get(`/cartographer/generate-json/${effectiveProjectId}`);
-            const newSteps = response.data;
-            if (newSteps && Array.isArray(newSteps)) {
-                const combinedSteps = [...(selectedScenario.steps || []), ...newSteps];
+            const response = await api.get(`/cartographer/generate-scenarios/${effectiveProjectId}`);
+            const data = response.data;
+
+            if (data && data.scenarios && Array.isArray(data.scenarios)) {
+                // Flatten all scenarios into steps with COMMENT separators
+                const allSteps: Step[] = [];
+
+                data.scenarios.forEach((scenario: any, index: number) => {
+                    // Add COMMENT separator before each scenario (except first if no existing steps)
+                    if (index > 0 || (selectedScenario.steps && selectedScenario.steps.length > 0)) {
+                        allSteps.push({
+                            type: 'COMMENT',
+                            value: `--- ${scenario.name} ---`,
+                            metadata: {
+                                generated: true,
+                                description: scenario.description
+                            }
+                        } as Step);
+                    }
+
+                    // Add scenario steps
+                    if (scenario.steps && Array.isArray(scenario.steps)) {
+                        allSteps.push(...scenario.steps);
+                    }
+                });
+
+                const combinedSteps = [...(selectedScenario.steps || []), ...allSteps];
                 updateLocalScenario(selectedScenario.id, { steps: combinedSteps });
 
                 const newToast: ToastMessage = {
                     id: Date.now().toString(),
                     type: 'success',
-                    title: 'Oracle Wisdom Applied',
-                    message: `Added ${newSteps.length} generated steps to scenario`,
+                    title: 'Oracle Scenarios Generated',
+                    message: `Added ${data.scenarios.length} test scenarios (${allSteps.length} total steps)`,
                     duration: 5000
                 };
                 setToasts(prev => [...prev, newToast]);
             }
         } catch (err) {
-            console.error('Oracle JSON failed', err);
+            console.error('Oracle Scenarios failed', err);
+            const errorToast: ToastMessage = {
+                id: Date.now().toString(),
+                type: 'error',
+                title: 'Oracle Failed',
+                message: 'Failed to generate test scenarios',
+                duration: 5000
+            };
+            setToasts(prev => [...prev, errorToast]);
         }
     };
 
@@ -225,9 +292,17 @@ const WebScenarios: React.FC = () => {
                 setExecutionProgress(data);
             });
 
+            socketService.onStatus(selectedScenario.id, (data: { status: any }) => {
+                setExecutionState(data.status);
+                if (data.status === 'IDLE' || data.status === 'STOPPED') {
+                    setExecuting(false);
+                }
+            });
+
             return () => {
                 socketService.offHealing(selectedScenario.id);
                 socketService.offProgress(selectedScenario.id);
+                socketService.offStatus(selectedScenario.id);
             };
         }
     }, [selectedScenario]);
@@ -354,7 +429,14 @@ const WebScenarios: React.FC = () => {
             setScenarioToDelete(null);
         } catch {
             console.error('Failed to delete scenario');
-            alert('Failed to delete scenario');
+            const newToast: ToastMessage = {
+                id: Date.now().toString(),
+                type: 'error',
+                title: 'Deletion Failed',
+                message: 'Failed to delete scenario',
+                duration: 5000
+            };
+            setToasts(prev => [...prev, newToast]);
         }
     };
 
@@ -386,6 +468,7 @@ const WebScenarios: React.FC = () => {
     const handleRunScenario = async () => {
         if (!selectedScenario) return;
         setExecuting(true);
+        setExecutionState('RUNNING');
         setExecutionProgress(null);
         try {
             // Auto-save before execution to ensure backend has the latest steps
@@ -403,45 +486,27 @@ const WebScenarios: React.FC = () => {
         }
     };
 
-    const handleScanPage = async (url: string) => {
-        if (!url) return;
-        setIsDiscovering(true);
-        try {
-            const response = await api.post('/web-scenarios/discover', { url });
-            setDiscoveredElements(response.data);
-            setActiveTab('insights'); // Move to a tab where we can show this, or a new one
-        } catch (err) {
-            console.error('Failed to discover elements', err);
-            const newToast: ToastMessage = {
-                id: Date.now().toString(),
-                type: 'error',
-                title: 'Discovery Failed',
-                message: 'Could not scan the page for elements',
-                duration: 5000
-            };
-            setToasts(prev => [...prev, newToast]);
-        } finally {
-            setIsDiscovering(false);
-        }
-    };
 
-    const addStepFromDiscovered = (element: any) => {
-        if (!selectedScenario) return;
-        const type = element.tagName === 'INPUT' ? 'FILL' : 'CLICK';
-        const newStep: Step = {
-            type,
-            selector: element.selector,
-            value: '',
-            metadata: element.metadata
-        };
-        const newSteps = [...selectedScenario.steps, newStep];
-        updateLocalScenario(selectedScenario.id, { steps: newSteps });
-    };
 
     const addStep = () => {
         if (!selectedScenario) return;
         const newSteps: Step[] = [...selectedScenario.steps, { type: 'CLICK', selector: '' }];
         updateLocalScenario(selectedScenario.id, { steps: newSteps });
+    };
+
+    const clearAllSteps = () => {
+        setShowClearStepsModal(true);
+    };
+
+    const confirmClearAllSteps = () => {
+        if (!selectedScenario) return;
+        updateLocalScenario(selectedScenario.id, { steps: [] });
+        setShowClearStepsModal(false);
+    };
+
+    const confirmClearHistory = async () => {
+        await clearProjectHistory();
+        setShowClearHistoryModal(false);
     };
 
     const updateStep = (index: number, field: keyof Step, value: string) => {
@@ -485,7 +550,14 @@ const WebScenarios: React.FC = () => {
             // Validate that every step has at least a type
             const invalidStepIndex = parsed.findIndex(s => !s || typeof s !== 'object' || !s.type);
             if (invalidStepIndex !== -1) {
-                alert(`Invalid step at index ${invalidStepIndex}: Missing 'type' property.`);
+                const newToast: ToastMessage = {
+                    id: Date.now().toString(),
+                    type: 'error',
+                    title: 'Invalid Script',
+                    message: `Invalid step at index ${invalidStepIndex}: Missing 'type' property.`,
+                    duration: 5000
+                };
+                setToasts(prev => [...prev, newToast]);
                 return;
             }
 
@@ -497,7 +569,14 @@ const WebScenarios: React.FC = () => {
             setIsScriptModalOpen(false);
         } catch (err) {
             console.error('Failed to parse script', err);
-            alert('Invalid JSON format: ' + (err as Error).message);
+            const newToast: ToastMessage = {
+                id: Date.now().toString(),
+                type: 'error',
+                title: 'Parse Error',
+                message: 'Invalid JSON format: ' + (err as Error).message,
+                duration: 5000
+            };
+            setToasts(prev => [...prev, newToast]);
         }
     };
 
@@ -577,39 +656,78 @@ const WebScenarios: React.FC = () => {
                                         STOPREC
                                     </Button>
                                 )}
-                                <Button
-                                    variant="primary"
-                                    onClick={handleRunScenario}
-                                    disabled={executing || isRecording || syncStatus === 'saving'}
-                                    className="h-full px-5 text-[9px] uppercase tracking-widest font-bold"
-                                >
-                                    {executing ? <Loader2 className="animate-spin mr-2" size={12} /> : <Play size={12} className="mr-2" />}
-                                    RUN_TEST
-                                </Button>
 
-                                <Button
-                                    onClick={handleRunAll}
-                                    disabled={batchExecuting}
-                                    className={`h-full px-5 text-[9px] uppercase tracking-widest font-bold border border-accent/30 bg-accent/5 text-accent hover:bg-accent hover:text-deep transition-all duration-300 ${batchExecuting ? 'animate-pulse' : ''}`}
-                                >
-                                    {batchExecuting ? <Loader2 size={12} className="animate-spin mr-2" /> : <Layers size={12} className="mr-2" />}
-                                    RUN_SUITE
-                                </Button>
+                                {executing ? (
+                                    <div className="flex gap-1 h-full">
+                                        {executionState === 'PAUSED' ? (
+                                            <Button
+                                                variant="primary"
+                                                onClick={handleResume}
+                                                className="h-full px-4 text-[9px] uppercase tracking-widest font-bold bg-emerald-500/20 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500 hover:text-deep"
+                                            >
+                                                <Play size={12} className="mr-2" />
+                                                RESUME
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={handlePause}
+                                                className="h-full px-4 text-[9px] uppercase tracking-widest font-bold bg-amber-500/20 text-amber-500 border-amber-500/30 hover:bg-amber-500 hover:text-deep"
+                                            >
+                                                <Pause size={12} className="mr-2" />
+                                                PAUSE
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="danger"
+                                            onClick={handleStop}
+                                            className="h-full px-4 text-[9px] uppercase tracking-widest font-bold"
+                                        >
+                                            <StopCircle size={12} className="mr-2" />
+                                            STOP
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleRunScenario}
+                                            disabled={isRecording || syncStatus === 'saving'}
+                                            className="h-full px-5 text-[9px] uppercase tracking-widest font-bold"
+                                        >
+                                            <Play size={12} className="mr-2" />
+                                            RUN_TEST
+                                        </Button>
+
+                                        <Button
+                                            onClick={handleRunAll}
+                                            disabled={batchExecuting}
+                                            className={`h-full px-5 text-[9px] uppercase tracking-widest font-bold border border-accent/30 bg-accent/5 text-accent hover:bg-accent hover:text-deep transition-all duration-300 ${batchExecuting ? 'animate-pulse' : ''}`}
+                                        >
+                                            {batchExecuting ? <Loader2 size={12} className="animate-spin mr-2" /> : <Layers size={12} className="mr-2" />}
+                                            RUN_SUITE
+                                        </Button>
+                                    </>
+                                )}
                             </div>
 
-                            <div className="flex items-center border-l border-main/50 pl-4 h-8 min-w-[80px] justify-center text-center">
-                                {syncStatus === 'saving' && (
+                            <div className="flex items-center border-l border-main/50 pl-4 h-8 min-w-[100px] justify-center text-center">
+                                {syncStatus === 'saving' ? (
                                     <span className="text-[8px] font-mono text-amber-500 uppercase animate-pulse flex items-center gap-1">
                                         <Loader2 size={10} className="animate-spin" /> Saving
                                     </span>
-                                )}
-                                {syncStatus === 'saved' && (
+                                ) : syncStatus === 'saved' ? (
                                     <span className="text-[8px] font-mono text-emerald-500 uppercase flex items-center gap-1">
                                         <CheckCircle2 size={10} /> Synced
                                     </span>
-                                )}
-                                {syncStatus === 'error' && (
-                                    <span className="text-[8px] font-mono text-rose-500 uppercase">Error</span>
+                                ) : syncStatus === 'error' ? (
+                                    <span className="text-[8px] font-mono text-rose-500 uppercase flex items-center gap-1">
+                                        <XCircle size={10} /> Sync_Err
+                                    </span>
+                                ) : (
+                                    <span className="text-[8px] font-mono text-secondary-text/40 uppercase flex items-center gap-1">
+                                        <CheckCircle2 size={10} className="opacity-20" /> Synced
+                                    </span>
                                 )}
                             </div>
                         </>
@@ -692,6 +810,9 @@ const WebScenarios: React.FC = () => {
                                         <Button onClick={openScriptEditor} variant="ghost" className="h-6 text-[8px] uppercase tracking-widest text-secondary-text hover:text-accent">
                                             <Code2 size={10} className="mr-1" /> JSON
                                         </Button>
+                                        <Button onClick={clearAllSteps} variant="ghost" className="h-6 text-[8px] uppercase tracking-widest text-rose-500/60 hover:text-rose-500">
+                                            <Trash2 size={10} className="mr-1" /> CLEAR_ALL
+                                        </Button>
                                         <Button onClick={addStep} variant="ghost" className="h-6 text-[8px] uppercase tracking-widest">
                                             <Plus size={10} className="mr-1" /> ADD_STEP
                                         </Button>
@@ -713,29 +834,9 @@ const WebScenarios: React.FC = () => {
                                                 </div>
                                                 <div className="flex-1 bg-deep/50 border border-main p-3 space-y-3 relative">
                                                     <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => moveStep(idx, 'up')}
-                                                            disabled={idx === 0}
-                                                            className="p-1 text-secondary-text hover:text-accent disabled:opacity-30 disabled:hover:text-secondary-text"
-                                                            title="Move Up"
-                                                        >
-                                                            <ChevronUp size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => moveStep(idx, 'down')}
-                                                            disabled={idx === selectedScenario.steps.length - 1}
-                                                            className="p-1 text-secondary-text hover:text-accent disabled:opacity-30 disabled:hover:text-secondary-text"
-                                                            title="Move Down"
-                                                        >
-                                                            <ChevronDown size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => removeStep(idx)}
-                                                            className="p-1 text-secondary-text hover:text-danger ml-1"
-                                                            title="Remove Step"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
+                                                        <button onClick={() => moveStep(idx, 'up')} disabled={idx === 0} className="p-1 text-secondary-text hover:text-accent disabled:opacity-30 disabled:hover:text-secondary-text"><ChevronUp size={14} /></button>
+                                                        <button onClick={() => moveStep(idx, 'down')} disabled={idx === selectedScenario.steps.length - 1} className="p-1 text-secondary-text hover:text-accent disabled:opacity-30 disabled:hover:text-secondary-text"><ChevronDown size={14} /></button>
+                                                        <button onClick={() => removeStep(idx)} className="p-1 text-secondary-text hover:text-danger ml-1"><X size={14} /></button>
                                                     </div>
 
                                                     <div className="grid grid-cols-2 gap-4">
@@ -752,15 +853,12 @@ const WebScenarios: React.FC = () => {
                                                                 {(step.type === 'RELOAD') && <RefreshCw size={10} className="text-blue-500" />}
                                                                 {(step.type === 'WAIT') && <Clock size={10} className="text-amber-400" />}
                                                                 {(step.type === 'SCROLL') && <MoveDown size={10} className="text-purple-400" />}
+                                                                {(step.type === 'COMMENT') && <MessageSquare size={10} className="text-cyan-400" />}
                                                                 {step.type?.startsWith('ASSERT') && !step.type?.includes('HIDDEN') && <CheckCircle2 size={10} className="text-emerald-500" />}
                                                                 {step.type === 'ASSERT_HIDDEN' && <EyeOff size={10} className="text-rose-400" />}
                                                                 <label className="text-[8px] font-mono text-secondary-text uppercase block">ACTION_TYPE</label>
                                                             </div>
-                                                            <select
-                                                                value={step.type}
-                                                                onChange={(e) => updateStep(idx, 'type', e.target.value)}
-                                                                className="w-full bg-surface border-sharp border-main px-2 py-1 text-[10px] font-mono text-accent focus:outline-none"
-                                                            >
+                                                            <select value={step.type} onChange={(e) => updateStep(idx, 'type', e.target.value)} className="w-full bg-surface border-sharp border-main px-2 py-1 text-[10px] font-mono text-accent focus:outline-none">
                                                                 <optgroup label="NAVIGATION" className="bg-deep text-[10px]">
                                                                     <option value="GOTO">GOTO_URL</option>
                                                                     <option value="RELOAD">RELOAD_PAGE</option>
@@ -780,6 +878,9 @@ const WebScenarios: React.FC = () => {
                                                                     <option value="CHECK">CHECK_BOX</option>
                                                                     <option value="UNCHECK">UNCHECK_BOX</option>
                                                                     <option value="SUBMIT">SUBMIT_FORM</option>
+                                                                    <option value="HOVER">MOUSE_HOVER</option>
+                                                                    <option value="DRAG_AND_DROP">DRAG_AND_DROP</option>
+                                                                    <option value="SWITCH_FRAME">SWITCH_FRAME</option>
                                                                 </optgroup>
                                                                 <optgroup label="VALIDATION" className="bg-deep text-[10px]">
                                                                     <option value="ASSERT_VISIBLE">ASSERT_VISIBLE</option>
@@ -792,21 +893,24 @@ const WebScenarios: React.FC = () => {
                                                                 <optgroup label="CONTROL" className="bg-deep text-[10px]">
                                                                     <option value="WAIT">WAIT_TIME</option>
                                                                 </optgroup>
+                                                                <optgroup label="ORGANIZATION" className="bg-deep text-[10px]">
+                                                                    <option value="COMMENT">COMMENT_SEPARATOR</option>
+                                                                </optgroup>
                                                             </select>
                                                         </div>
-                                                        {['CLICK', 'DOUBLE_CLICK', 'RIGHT_CLICK', 'FILL', 'TYPE', 'HOVER', 'SELECT', 'CHECK', 'UNCHECK', 'SUBMIT', 'ASSERT_VISIBLE', 'ASSERT_HIDDEN', 'ASSERT_TEXT', 'ASSERT_VALUE', 'SCROLL'].includes(step.type) && (
+                                                        {['CLICK', 'DOUBLE_CLICK', 'RIGHT_CLICK', 'FILL', 'TYPE', 'HOVER', 'SELECT', 'CHECK', 'UNCHECK', 'SUBMIT', 'ASSERT_VISIBLE', 'ASSERT_HIDDEN', 'ASSERT_TEXT', 'ASSERT_VALUE', 'SCROLL', 'DRAG_AND_DROP', 'SWITCH_FRAME'].includes(step.type) && (
                                                             <div>
                                                                 <label className="text-[8px] font-mono text-secondary-text uppercase mb-1 block">UI_SELECTOR</label>
                                                                 <input
-                                                                    list="discovered-selectors"
-                                                                    value={step.selector || ''}
                                                                     onChange={(e) => updateStep(idx, 'selector', e.target.value)}
+                                                                    value={step.selector || ''}
                                                                     className="w-full bg-surface border-sharp border-main px-2 py-1 text-[10px] font-mono text-primary-text focus:outline-none placeholder:opacity-20"
                                                                     placeholder="#id, .class, [data-testid]..."
                                                                 />
                                                             </div>
                                                         )}
                                                     </div>
+
                                                     <div className="flex gap-2 items-end">
                                                         <div className="flex-1">
                                                             <label className="text-[8px] font-mono text-secondary-text uppercase mb-1 block">VALUE_STRING</label>
@@ -819,21 +923,12 @@ const WebScenarios: React.FC = () => {
                                                                         step.type === 'WAIT' ? 'Milliseconds (e.g. 2000)' :
                                                                             step.type === 'KEY_PRESS' ? 'Key Name (e.g. Escape, Enter, Tab)' :
                                                                                 step.type === 'SELECT' ? 'Value or label of the option' :
-                                                                                    (step.type?.includes('ASSERT_URL') ? 'Substring of URL' : 'Data or expected text')
+                                                                                    step.type === 'DRAG_AND_DROP' ? 'Target UI Selector' :
+                                                                                        step.type === 'SWITCH_FRAME' ? 'Frame Name, ID or Selector' :
+                                                                                            (step.type?.includes('ASSERT_URL') ? 'Substring of URL' : 'Data or expected text')
                                                                 }
                                                             />
                                                         </div>
-                                                        {step.type === 'GOTO' && step.value && (
-                                                            <button
-                                                                onClick={() => handleScanPage(step.value!)}
-                                                                disabled={isDiscovering}
-                                                                className="bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent px-2 py-1 h-[26px] flex items-center gap-1 transition-all group"
-                                                                title="Scan Page for Elements"
-                                                            >
-                                                                <Zap size={10} className={isDiscovering ? 'animate-pulse' : 'group-hover:scale-110'} />
-                                                                <span className="text-[9px] font-mono uppercase font-bold">Scan</span>
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -935,11 +1030,7 @@ const WebScenarios: React.FC = () => {
                                             <div className="h-8 border-b border-main flex items-center justify-between px-2 shrink-0 bg-deep/30">
                                                 <span className="text-[9px] font-mono text-secondary-text uppercase tracking-widest">Global Activity History</span>
                                                 <button
-                                                    onClick={async () => {
-                                                        if (confirm('CLEAR_ALL_PROJECT_HISTORY?')) {
-                                                            await clearProjectHistory();
-                                                        }
-                                                    }}
+                                                    onClick={() => setShowClearHistoryModal(true)}
                                                     className="text-[9px] font-mono text-rose-500 hover:text-rose-400 transition-colors uppercase tracking-widest flex items-center gap-1"
                                                 >
                                                     <Trash2 size={10} /> CLEAR_ALL
@@ -987,82 +1078,16 @@ const WebScenarios: React.FC = () => {
                                         </div>
                                     ) : (
                                         <div className="h-full flex flex-col p-4 space-y-4 animate-in fade-in zoom-in-95 duration-300 overflow-y-auto custom-scrollbar">
-                                            {/* Intelligence Explorer Section (from original insights) */}
-                                            {activeTab === 'insights' && (
-                                                <div className="flex-1 flex flex-col p-4 border-b border-main overflow-hidden">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="p-1.5 bg-accent/10 rounded flex items-center justify-center">
-                                                                <BrainCircuit size={14} className="text-accent" />
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="text-[12px] font-mono font-bold text-primary-text uppercase tracking-tight">Intelligence Explorer</h3>
-                                                                <p className="text-[10px] font-mono text-secondary-text uppercase opacity-70">Discovered Interactive Elements</p>
-                                                            </div>
-                                                        </div>
-                                                        {discoveredElements.length > 0 && (
-                                                            <span className="text-[10px] font-mono text-accent bg-accent/5 px-2 py-0.5 border border-accent/20 rounded-full">
-                                                                {discoveredElements.length} FOUND
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                            {/* Legacy Insights removed, restored below */}
 
-                                                    <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-                                                        {isDiscovering ? (
-                                                            <div className="h-full flex flex-col items-center justify-center gap-4 py-10 bg-deep/30 border border-main rounded-lg dashed border-accent/20">
-                                                                <Zap size={24} className="text-accent animate-bounce" />
-                                                                <span className="text-[10px] font-mono text-accent animate-pulse uppercase tracking-[0.2em] font-bold text-center px-4">Scanning_DOM_Tree...</span>
-                                                            </div>
-                                                        ) : discoveredElements.length > 0 ? (
-                                                            <div className="grid grid-cols-1 gap-2">
-                                                                {discoveredElements.map((el, i) => (
-                                                                    <div
-                                                                        key={i}
-                                                                        className="group bg-surface hover:bg-main/50 border border-main hover:border-accent/40 rounded p-3 transition-all cursor-default"
-                                                                    >
-                                                                        <div className="flex justify-between items-start mb-2">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="px-1.5 py-0.5 bg-accent/10 text-accent text-[8px] font-mono font-bold rounded uppercase">
-                                                                                    {el.tagName}
-                                                                                </span>
-                                                                                <h4 className="text-[11px] font-mono font-bold text-primary-text truncate max-w-[180px]">
-                                                                                    {el.metadata?.name || el.text || 'Unnamed Element'}
-                                                                                </h4>
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => addStepFromDiscovered(el)}
-                                                                                className="opacity-0 group-hover:opacity-100 bg-accent hover:bg-accent-hover text-white p-1 rounded transition-all transform group-hover:scale-110 active:scale-95 shadow-lg shadow-accent/20"
-                                                                            >
-                                                                                <Plus size={12} strokeWidth={3} />
-                                                                            </button>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-[8px] font-mono text-secondary-text uppercase w-12">Selector:</span>
-                                                                            <code className="text-[9px] font-mono text-accent bg-accent/5 px-1 rounded truncate flex-1 block border border-accent/10 font-bold">
-                                                                                {el.selector}
-                                                                            </code>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="h-full flex flex-col items-center justify-center gap-2 opacity-30 py-10">
-                                                                <Search size={24} />
-                                                                <span className="text-[9px] font-mono uppercase tracking-widest text-center">No elements explored<br />Click Scan on a GOTO step</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Execution Heatmap Section (from original insights) */}
+                                            {/* Execution Heatmap Section (Original Insights) */}
                                             {activeTab === 'insights' && scenarioHistory.length > 0 && (
-                                                <div className="h-[200px] shrink-0 border-t border-main overflow-hidden bg-deep/20">
+                                                <div className="flex-1 flex flex-col overflow-hidden bg-deep/20">
                                                     <div className="px-4 py-2 border-b border-main bg-main/5 flex items-center justify-between">
                                                         <span className="text-[9px] font-mono text-secondary-text uppercase tracking-widest">Execution Analytics</span>
                                                         <Activity size={10} className="text-secondary-text" />
                                                     </div>
-                                                    <div className="h-[160px] p-2">
+                                                    <div className="flex-1 p-4">
                                                         <ScenarioHeatmap
                                                             history={scenarioHistory}
                                                             steps={selectedScenario.steps}
@@ -1168,7 +1193,17 @@ const WebScenarios: React.FC = () => {
                                                         <div className="flex-1 bg-deep border border-main p-3 rounded font-mono text-[10px] text-accent/80 overflow-auto custom-scrollbar relative">
                                                             <div className="absolute top-2 right-2 flex gap-2">
                                                                 <button
-                                                                    onClick={() => { navigator.clipboard.writeText(brainScript); alert('Copied!'); }}
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(brainScript);
+                                                                        const newToast: ToastMessage = {
+                                                                            id: Date.now().toString(),
+                                                                            type: 'success',
+                                                                            title: 'Copied',
+                                                                            message: 'Oracle script copied to clipboard',
+                                                                            duration: 3000
+                                                                        };
+                                                                        setToasts(prev => [...prev, newToast]);
+                                                                    }}
                                                                     className="p-1.5 hover:bg-white/5 rounded text-secondary-text hover:text-white transition-colors"
                                                                     title="Copy to Clipboard"
                                                                 >
@@ -1262,73 +1297,77 @@ const WebScenarios: React.FC = () => {
                     </div>
                 </Modal>
 
-                <Modal
+                <ConfirmModal
                     isOpen={!!scenarioToDelete}
                     onClose={() => setScenarioToDelete(null)}
+                    onConfirm={confirmDelete}
                     title="CONFIRM_DELETION"
-                >
-                    <div className="space-y-4">
-                        <p className="text-sm font-mono text-secondary-text">
-                            Are you sure you want to delete <span className="text-accent font-bold">{scenarioToDelete?.name}</span>?
-                            This action cannot be undone and all execution history will be lost.
-                        </p>
-                        <div className="flex gap-3 pt-4">
-                            <Button variant="ghost" onClick={() => setScenarioToDelete(null)} className="flex-1">CANCEL</Button>
-                            <Button onClick={confirmDelete} className="flex-1 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 border-rose-500/50">CONFIRM_DELETE</Button>
+                    message={`Are you sure you want to delete ${scenarioToDelete?.name}? This action cannot be undone and all execution history will be lost.`}
+                    confirmText="CONFIRM_DELETE"
+                />
+
+                <ConfirmModal
+                    isOpen={showClearStepsModal}
+                    onClose={() => setShowClearStepsModal(false)}
+                    onConfirm={confirmClearAllSteps}
+                    title="CONFIRM_CLEAR_STEPS"
+                    message="Are you sure you want to delete ALL STEPS from this scenario? This action cannot be undone."
+                    confirmText="CLEAR_ALL_STEPS"
+                />
+
+                <ConfirmModal
+                    isOpen={showClearHistoryModal}
+                    onClose={() => setShowClearHistoryModal(false)}
+                    onConfirm={confirmClearHistory}
+                    title="CONFIRM_CLEAR_HISTORY"
+                    message="Are you sure you want to delete ALL PROJECT HISTORY? This will wipe the execution logs for all scenarios in this project."
+                    confirmText="CLEAR_HISTORY"
+                />
+
+                {/* Recording Modal */}
+                {
+                    showRecordModal && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                            <Card className="w-[400px] border-primary/20 bg-[#0B0C0E]">
+                                <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                                    <h3 className="text-sm font-medium flex items-center gap-2">
+                                        <Sparkles size={16} className="text-primary" />
+                                        Smart Recorder
+                                    </h3>
+                                    <button onClick={() => setShowRecordModal(false)} className="text-secondary-text hover:text-white transition-colors">
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <p className="text-xs text-secondary-text leading-relaxed">
+                                        Enter the starting URL. A browser will open locally to record your interactions.
+                                        <br />
+                                        <span className="text-amber-500/80 font-medium">Note: The browser will open on the host machine.</span>
+                                    </p>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={recordingUrl}
+                                        onChange={(e) => setRecordingUrl(e.target.value)}
+                                        placeholder="https://example.com"
+                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                                    />
+                                    <Button
+                                        className="w-full h-10"
+                                        onClick={handleStartRecording}
+                                        disabled={!recordingUrl}
+                                    >
+                                        <Play size={14} className="mr-2" />
+                                        START_RECORDING
+                                    </Button>
+                                </div>
+                            </Card>
                         </div>
-                    </div>
-                </Modal>
-            </div >
-            {/* Recording Modal */}
-            {
-                showRecordModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                        <Card className="w-[400px] border-primary/20 bg-[#0B0C0E]">
-                            <div className="p-4 border-b border-white/5 flex justify-between items-center">
-                                <h3 className="text-sm font-medium flex items-center gap-2">
-                                    <Sparkles size={16} className="text-primary" />
-                                    Smart Recorder
-                                </h3>
-                                <button onClick={() => setShowRecordModal(false)} className="text-secondary-text hover:text-white transition-colors">
-                                    <X size={18} />
-                                </button>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <p className="text-xs text-secondary-text leading-relaxed">
-                                    Enter the starting URL. A browser will open locally to record your interactions.
-                                    <br />
-                                    <span className="text-amber-500/80 font-medium">Note: The browser will open on the host machine.</span>
-                                </p>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    value={recordingUrl}
-                                    onChange={(e) => setRecordingUrl(e.target.value)}
-                                    placeholder="https://example.com"
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                />
-                                <Button
-                                    className="w-full h-10"
-                                    onClick={handleStartRecording}
-                                    disabled={!recordingUrl}
-                                >
-                                    <Play size={14} className="mr-2" />
-                                    START_RECORDING
-                                </Button>
-                            </div>
-                        </Card>
-                    </div>
-                )
-            }
-            <ToastContainer toasts={toasts} removeToast={removeToast} />
-            <datalist id="discovered-selectors">
-                {discoveredElements.map((el, i) => (
-                    <option key={i} value={el.selector}>
-                        {el.tagName} {el.metadata?.name ? `- ${el.metadata.name}` : el.text ? `- ${el.text}` : ''}
-                    </option>
-                ))}
-            </datalist>
-        </div >
+                    )
+                }
+                <ToastContainer toasts={toasts} removeToast={removeToast} />
+            </div>
+        </div>
     );
 };
 

@@ -23,11 +23,32 @@ interface ScenarioStep {
 
 @Injectable()
 export class WebExecutionService {
+  private executionStates = new Map<string, 'RUNNING' | 'PAUSED' | 'STOPPED'>();
+
   constructor(
     private prisma: PrismaService,
     private utilsService: UtilsService,
     private eventsGateway: EventsGateway,
   ) {}
+
+  pause(scenarioId: string) {
+    if (this.executionStates.get(scenarioId) === 'RUNNING') {
+      this.executionStates.set(scenarioId, 'PAUSED');
+      console.log(`[WebExecutionService] Scenario ${scenarioId} PAUSED`);
+    }
+  }
+
+  resume(scenarioId: string) {
+    if (this.executionStates.get(scenarioId) === 'PAUSED') {
+      this.executionStates.set(scenarioId, 'RUNNING');
+      console.log(`[WebExecutionService] Scenario ${scenarioId} RESUMED`);
+    }
+  }
+
+  stop(scenarioId: string) {
+    this.executionStates.set(scenarioId, 'STOPPED');
+    console.log(`[WebExecutionService] Scenario ${scenarioId} STOPPED`);
+  }
 
   async execute(scenarioId: string, environmentId?: string) {
     console.log(
@@ -66,6 +87,9 @@ export class WebExecutionService {
     let updatedSteps: ScenarioStep[] = [];
 
     try {
+      this.executionStates.set(scenarioId, 'RUNNING');
+      this.eventsGateway.emitStatus(scenarioId, 'RUNNING');
+
       const steps: ScenarioStep[] =
         (scenario.steps as unknown as ScenarioStep[]) || [];
       console.log(
@@ -74,7 +98,30 @@ export class WebExecutionService {
       updatedSteps = [...steps];
 
       let stepIndex = 0;
+      let currentFrame: any = page; // Default to main page
+
       for (const step of steps) {
+        // --- PAUSE/STOP CHECK ---
+        while (this.executionStates.get(scenarioId) === 'PAUSED') {
+          this.eventsGateway.emitStatus(scenarioId, 'PAUSED');
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        if (this.executionStates.get(scenarioId) === 'STOPPED') {
+          status = 'STOPPED';
+          logs.push({
+            step: 'SYSTEM',
+            info: 'Execution stopped by user',
+            timestamp: new Date().toISOString(),
+          });
+          break;
+        }
+        
+        // Ensure status is emitting as running when we proceed
+        if (this.executionStates.get(scenarioId) === 'RUNNING') {
+           this.eventsGateway.emitStatus(scenarioId, 'RUNNING');
+        }
+
         const stepStart = Date.now();
         const currentStepIdx = stepIndex + 1;
         console.log(
@@ -172,7 +219,7 @@ export class WebExecutionService {
             case 'CLICK': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -185,12 +232,13 @@ export class WebExecutionService {
                   timestamp: new Date().toISOString(),
                 });
               await locator.click({ force: true });
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
               break;
             }
             case 'DOUBLE_CLICK': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -203,12 +251,13 @@ export class WebExecutionService {
                   timestamp: new Date().toISOString(),
                 });
               await locator.dblclick({ force: true });
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
               break;
             }
             case 'RIGHT_CLICK': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -221,12 +270,75 @@ export class WebExecutionService {
                   timestamp: new Date().toISOString(),
                 });
               await locator.click({ button: 'right', force: true });
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
+              break;
+            }
+            case 'HOVER': {
+              const { locator, healed, method } =
+                await this.findElementWithHealing(
+                  currentFrame,
+                  effectiveSelector,
+                  scenario.id,
+                  step.metadata,
+                );
+              if (healed)
+                logs.push({
+                  step: `STEP_${currentStepIdx}: HOVER`,
+                  status: 'HEALED',
+                  info: `Self-healed via ${method}`,
+                  timestamp: new Date().toISOString(),
+                });
+              await locator.hover({ force: true });
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
+              break;
+            }
+            case 'DRAG_AND_DROP': {
+              // Value should be the target selector
+              const targetSelector = value;
+              const { locator: source, healed: sourceHealed } =
+                await this.findElementWithHealing(
+                  currentFrame,
+                  effectiveSelector,
+                  scenario.id,
+                  step.metadata,
+                );
+              
+              await source.dragTo(currentFrame.locator(targetSelector));
+              break;
+            }
+            case 'SWITCH_FRAME': {
+              if (!effectiveSelector || effectiveSelector === 'main' || effectiveSelector === 'top') {
+                currentFrame = page;
+                logs.push({
+                  step: `STEP_${currentStepIdx}: SWITCH_FRAME`,
+                  info: 'Switched to main page context',
+                  timestamp: new Date().toISOString(),
+                });
+              } else {
+                const frameElement = page.locator(effectiveSelector);
+                currentFrame = frameElement.contentFrame();
+                if (!currentFrame) {
+                    // Try by name or ID if contentFrame fails
+                    currentFrame = page.frame({ name: effectiveSelector }) || 
+                                   page.frame({ url: new RegExp(effectiveSelector) });
+                }
+                
+                if (!currentFrame) {
+                  throw new Error(`Frame with selector/name "${effectiveSelector}" not found`);
+                }
+
+                logs.push({
+                  step: `STEP_${currentStepIdx}: SWITCH_FRAME`,
+                  info: `Switched to frame: ${effectiveSelector}`,
+                  timestamp: new Date().toISOString(),
+                });
+              }
               break;
             }
             case 'FILL': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -250,12 +362,13 @@ export class WebExecutionService {
               } else {
                 await locator.fill(value);
               }
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
               break;
             }
             case 'TYPE': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -268,15 +381,17 @@ export class WebExecutionService {
                   timestamp: new Date().toISOString(),
                 });
               await locator.type(value);
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
               break;
             }
             case 'KEY_PRESS':
               await page.keyboard.press(value);
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
               break;
             case 'HOVER': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -289,12 +404,13 @@ export class WebExecutionService {
                   timestamp: new Date().toISOString(),
                 });
               await locator.hover();
+              await this.capturePageFeedback(currentFrame, logs, currentStepIdx);
               break;
             }
             case 'SELECT': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -312,7 +428,7 @@ export class WebExecutionService {
             case 'CHECK': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -330,7 +446,7 @@ export class WebExecutionService {
             case 'UNCHECK': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -373,7 +489,7 @@ export class WebExecutionService {
             case 'ASSERT_VISIBLE': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -398,7 +514,7 @@ export class WebExecutionService {
             case 'ASSERT_TEXT': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -422,7 +538,7 @@ export class WebExecutionService {
             case 'ASSERT_VALUE': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -469,7 +585,7 @@ export class WebExecutionService {
             case 'SCROLL': {
               const { locator, healed, method } =
                 await this.findElementWithHealing(
-                  page,
+                  currentFrame,
                   effectiveSelector,
                   scenario.id,
                   step.metadata,
@@ -484,6 +600,14 @@ export class WebExecutionService {
               await locator.scrollIntoViewIfNeeded();
               break;
             }
+            case 'COMMENT':
+              // Comment steps are just visual separators - log and continue
+              logs.push({
+                step: `STEP_${currentStepIdx}: COMMENT`,
+                info: value || 'Separator',
+                timestamp: new Date().toISOString(),
+              });
+              break;
             default:
               logs.push({
                 step: step.type,
@@ -533,6 +657,8 @@ export class WebExecutionService {
         }
       }
       await browser.close();
+      this.executionStates.delete(scenarioId);
+      this.eventsGateway.emitStatus(scenarioId, 'IDLE');
 
       // If we learned new metadata, update the scenario
       if (scenarioUpdated) {
@@ -559,15 +685,66 @@ export class WebExecutionService {
     });
   }
 
+  private async capturePageFeedback(
+    container: Page | any,
+    logs: any[],
+    currentStepIdx: number,
+  ) {
+    try {
+      // Common selectors for feedback on demoqa.com and similar sites
+      const feedbackSelectors = [
+        '#linkResponse',
+        '#dynamicClickMessage',
+        '#rightClickMessage',
+        '#doubleClickMessage',
+        '#submit-results',
+        '#output',
+        '.toast-message',
+        '.alert-success',
+        '.alert-danger',
+        '[id*="Response"]',
+        '[id*="Message"]',
+        '[id*="Feedback"]',
+      ];
+
+      for (const selector of feedbackSelectors) {
+        const element = container.locator(selector).first();
+        const isVisible = await element
+          .isVisible()
+          .catch(() => false);
+        
+        if (isVisible) {
+          const text = await element.innerText().catch(() => '');
+          if (text) {
+             // Only log if it looks like a real message (not just empty or too short)
+             if (text.length > 3) {
+                logs.push({
+                    step: `STEP_${currentStepIdx}: OBSERVATION`,
+                    status: 'INFO',
+                    info: `Feedback detected: ${text.trim()}`,
+                    timestamp: new Date().toISOString(),
+                });
+                // Once we found one, we usually don't need to keep looking for others in the same step
+                return;
+             }
+          }
+        }
+      }
+    } catch (e) {
+      // Non-blocking catch
+      console.warn('[capturePageFeedback] failed:', e);
+    }
+  }
+
   private async findElementWithHealing(
-    page: Page,
+    container: Page | any, // Can be Page or Frame
     selector: string,
     scenarioId: string,
     metadata?: StepMetadata,
   ): Promise<{ locator: Locator; healed: boolean; method?: string }> {
     // 1. Attempt Original Selector (Fast Fail)
     try {
-      const locator = page.locator(selector).first();
+      const locator = container.locator(selector).first();
       // Short timeout to detect failure quickly.
       // If the element is not attached within 2s, we assume it's broken.
       await locator.waitFor({ state: 'attached', timeout: 2000 });
@@ -590,7 +767,7 @@ export class WebExecutionService {
     // A. Test ID (Weight: 1.0) - Highest Priority
     if (metadata.testId) {
       try {
-        const locator = page.getByTestId(metadata.testId).first();
+        const locator = container.getByTestId(metadata.testId).first();
         if ((await locator.count()) > 0) {
           candidates.push({
             locator,
@@ -607,7 +784,7 @@ export class WebExecutionService {
     // B. Role + Name (Weight: 0.8)
     if (metadata.role && metadata.name) {
       try {
-        const locator = page
+        const locator = container
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           .getByRole(metadata.role as any, { name: metadata.name })
           .first();
@@ -627,7 +804,7 @@ export class WebExecutionService {
     // C. Text Content (Weight: 0.7)
     if (metadata.text) {
       try {
-        const locator = page.getByText(metadata.text).first();
+        const locator = container.getByText(metadata.text).first();
         if ((await locator.count()) > 0) {
           candidates.push({
             locator,
@@ -644,7 +821,7 @@ export class WebExecutionService {
     // D. Placeholder (Weight: 0.6)
     if (metadata.placeholder) {
       try {
-        const locator = page.getByPlaceholder(metadata.placeholder).first();
+        const locator = container.getByPlaceholder(metadata.placeholder).first();
         if ((await locator.count()) > 0) {
           candidates.push({
             locator,
@@ -661,7 +838,7 @@ export class WebExecutionService {
     // E. Name Attribute (Weight: 0.5)
     if (metadata.name) {
       try {
-        const locator = page.locator(`[name="${metadata.name}"]`).first();
+        const locator = container.locator(`[name="${metadata.name}"]`).first();
         if ((await locator.count()) > 0) {
           candidates.push({
             locator,
@@ -701,7 +878,7 @@ export class WebExecutionService {
     }
 
     // Fallback: Return original to throw specific error from Playwright
-    return { locator: page.locator(selector).first(), healed: false };
+    return { locator: container.locator(selector).first(), healed: false };
   }
 
   async getHistory(scenarioId: string) {

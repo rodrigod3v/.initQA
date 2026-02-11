@@ -80,6 +80,16 @@ class SocketService {
     if (!this.socket) return;
     this.socket.off(`project/${projectId}/mapping-status`);
   }
+
+  onStatus(scenarioId: string, callback: (data: { status: string }) => void) {
+    if (!this.socket) return;
+    this.socket.on(`scenario/${scenarioId}/status`, callback);
+  }
+
+  offStatus(scenarioId: string) {
+    if (!this.socket) return;
+    this.socket.off(`scenario/${scenarioId}/status`);
+  }
 }
 
 export const socketService = new SocketService();

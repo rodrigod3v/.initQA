@@ -75,6 +75,21 @@ export class WebScenarioController {
     return this.webExecutionService.execute(id, environmentId);
   }
 
+  @Post(':id/pause')
+  pause(@Param('id') id: string) {
+    return this.webExecutionService.pause(id);
+  }
+
+  @Post(':id/resume')
+  resume(@Param('id') id: string) {
+    return this.webExecutionService.resume(id);
+  }
+
+  @Post(':id/stop')
+  stop(@Param('id') id: string) {
+    return this.webExecutionService.stop(id);
+  }
+
   @Get(':id/history')
   getHistory(@Param('id') id: string) {
     return this.webExecutionService.getHistory(id);

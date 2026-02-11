@@ -1,13 +1,20 @@
 import { memo } from 'react';
 import { Handle, Position } from 'reactflow';
-import { MousePointer2, Type, Eye, CheckCircle2, ArrowRight } from 'lucide-react';
+import { MousePointer2, Type, Eye, CheckCircle2, ArrowRight, MessageSquare, Move, Monitor } from 'lucide-react';
 
 const icons = {
     CLICK: <MousePointer2 size={16} />,
+    DOUBLE_CLICK: <MousePointer2 size={16} className="text-accent" />,
+    RIGHT_CLICK: <MousePointer2 size={16} className="text-secondary-text" />,
+    HOVER: <MousePointer2 size={16} className="opacity-50" />,
+    DRAG_AND_DROP: <Move size={16} />,
+    SWITCH_FRAME: <Monitor size={16} />,
     TYPE: <Type size={16} />,
+    FILL: <Type size={16} className="text-accent" />,
     ASSERT_TEXT: <Eye size={16} />,
     ASSERT_VISIBLE: <Eye size={16} />,
     GOTO: <ArrowRight size={16} />,
+    COMMENT: <MessageSquare size={16} />,
     default: <CheckCircle2 size={16} />
 };
 
